@@ -19,12 +19,6 @@ export class CreateUsuarioDto {
   @IsEmail()
   correo: string; // Correo electrónico
 
-  @IsString()
-  contraseña: string; // Contraseña
-
-  @IsString()
-  rol: 'admin' | 'socio' | 'deportista'; // Rol dentro del sistema
-
   @IsDateString()
   fechaNacimiento: string; // Fecha de nacimiento
 
@@ -33,6 +27,10 @@ export class CreateUsuarioDto {
 
   @IsDateString()
   fechaRegistro: string; // Fecha de registro en el sistema
+
+  // Relación con tabla Rol
+  @IsString()
+  idRol: string; // FK hacia tabla Rol
 
   // Campos opcionales según Excel
   @IsOptional()
@@ -63,7 +61,6 @@ export class CreateUsuarioDto {
   @IsString()
   apoderado?: string; // Nombre completo del apoderado
 
-  // 📌 Nuevo campo para la foto
   @IsOptional()
   @IsUrl()
   foto?: string; // URL de la foto del deportista

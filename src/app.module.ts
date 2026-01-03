@@ -12,6 +12,9 @@ import { PagosModule } from './pagos/pagos.module';
 import { NoticiasModule } from './noticias/noticias.module';
 import { VehiculosController } from './vehiculos/vehiculos.controller';
 import { VehiculosModule } from './vehiculos/vehiculos.module';
+import { RolesController } from './roles/roles.controller';
+import { RolesService } from './roles/roles.service';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -23,6 +26,7 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
     PagosModule,
     NoticiasModule,
     VehiculosModule,
+    RolesModule,
   ],
   controllers: [
     AsistenciaController,
@@ -30,6 +34,8 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
     PagosController,
     NoticiasController,
     VehiculosController,
+    RolesController,
   ],
+  providers: [RolesService],
 })
 export class AppModule {}
