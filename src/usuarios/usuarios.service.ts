@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateUsuarioDto } from './create-usuario.dto';
+import { CreateUsuarioDto } from './CreateUsuarioDto';
 import { db } from '../firebase.config';
 import {
   collection,
