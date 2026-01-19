@@ -1,98 +1,107 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Speed Project – Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Descripción del proyecto
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Este repositorio contiene el desarrollo del backend del sistema Speed Project, el cual corresponde a una API que permite gestionar la información de un club deportivo, incluyendo usuarios, clubes, campeonatos, entrenamientos, pagos y comunicaciones.
 
-## Description
+La API fue desarrollada como parte del Proyecto de Título, con el objetivo de centralizar la información del club y facilitar la planificación deportiva y administrativa.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## Tecnologías utilizadas
 
-```bash
-$ npm install
-```
+- Node.js  
+- Express  
+- Firebase Firestore  
+- JavaScript  
+- Postman (para pruebas de endpoints)
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## Arquitectura general
 
-# watch mode
-$ npm run start:dev
+El backend está construido bajo una arquitectura en capas, separando responsabilidades entre:
 
-# production mode
-$ npm run start:prod
-```
+- Rutas  
+- Controladores  
+- Servicios  
+- Acceso a datos (Firebase)
 
-## Run tests
+La base de datos utilizada es Firebase Firestore, siguiendo un enfoque NoSQL orientado a consultas y desnormalización controlada.
 
-```bash
-# unit tests
-$ npm run test
+---
 
-# e2e tests
-$ npm run test:e2e
+## Requisitos previos
 
-# test coverage
-$ npm run test:cov
-```
+Antes de ejecutar el proyecto es necesario contar con:
 
-## Deployment
+- Node.js instalado  
+- NPM instalado  
+- Una cuenta de Firebase con un proyecto creado  
+- Archivo de credenciales de Firebase (service account)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Instalación
+
+1. Clonar el repositorio:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+git clone https://github.com/vivimardones/club-api_speed-project.git
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+2. Ingresar al directorio del proyecto:
+```bash
+cd club-api_speed-project
+```
+3. Instalar dependencias:
+```bash
+npm install
+```
+## Configurar Firebase:
+- Crear un proyecto en Firebase
+- Habilitar Firestore
+- Descargar el archivo de credenciales
+- Configurar las credenciales según el archivo de configuración del proyecto
 
-## Resources
+## Ejecución del proyecto
+  Para levantar el servidor en entorno local:
+  ```bash
+  npm run dev
+  ```
+El backend quedará disponible en el puerto configurado en el proyecto (por defecto http://localhost:3000).
 
-Check out a few resources that may come in handy when working with NestJS:
+## Endpoints principales
+La API expone endpoints para la gestión de:
+- Usuarios
+- Clubes
+- Campeonatos
+- Entrenamientos
+- Inscripciones
+- Pagos
+- Comunicaciones
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Las pruebas de los endpoints se realizaron utilizando Postman, validando los flujos principales del sistema.
 
-## Support
+## Pruebas
+Las pruebas se realizaron de forma manual mediante Postman, verificando:
+- Creación de registros
+- Obtención de datos
+- Actualización de información
+- Manejo de estados
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Estas pruebas permiten validar el correcto funcionamiento de la API y su integración con la base de datos Firestore.
 
-## Stay in touch
+## Relación con el Frontend
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Este backend es consumido por el frontend del proyecto, el cual se encuentra disponible en el siguiente repositorio:
 
-## License
+https://github.com/vivimardones/front_speed_project
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+La comunicación entre frontend y backend se realiza mediante peticiones HTTP a los endpoints definidos en esta API.
+
+## Autora
+
+Proyecto desarrollado por Viviana Mardones
+Proyecto de Título – Analista Programador
+
