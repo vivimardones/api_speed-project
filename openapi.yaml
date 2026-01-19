@@ -1,0 +1,1187 @@
+openapi: 3.0.0
+info:
+  title: Club Speed API
+  description: API REST para gestión de club deportivo con Firebase
+  version: 1.0.0
+  contact:
+    name: Club Speed
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login de usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                correo:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login exitoso
+        '401':
+          description: No autorizado
+
+  /usuarios:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtener todos los usuarios
+      responses:
+        '200':
+          description: Lista de usuarios
+    post:
+      tags:
+        - Usuarios
+      summary: Crear nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                correo:
+                  type: string
+                perfilId:
+                  type: string
+      responses:
+        '201':
+          description: Usuario creado
+
+  /usuarios/{id}:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtener usuario por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usuario encontrado
+    put:
+      tags:
+        - Usuarios
+      summary: Actualizar usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Usuario actualizado
+    delete:
+      tags:
+        - Usuarios
+      summary: Eliminar usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usuario eliminado
+
+  /usuarios/{id}/perfil:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtener perfil de usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Perfil del usuario
+
+  /usuarios/{id}/vehiculos:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtener vehículos de usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de vehículos
+
+  /campeonatos:
+    get:
+      tags:
+        - Campeonatos
+      summary: Obtener todos los campeonatos
+      responses:
+        '200':
+          description: Lista de campeonatos
+    post:
+      tags:
+        - Campeonatos
+      summary: Crear nuevo campeonato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                fecha_inicio:
+                  type: string
+                fecha_fin:
+                  type: string
+      responses:
+        '201':
+          description: Campeonato creado
+
+  /campeonatos/{id}:
+    get:
+      tags:
+        - Campeonatos
+      summary: Obtener campeonato por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campeonato encontrado
+    put:
+      tags:
+        - Campeonatos
+      summary: Actualizar campeonato
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Campeonato actualizado
+    delete:
+      tags:
+        - Campeonatos
+      summary: Eliminar campeonato
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campeonato eliminado
+
+  /campeonatos/{id}/inscripciones:
+    get:
+      tags:
+        - Campeonatos
+      summary: Obtener inscripciones de campeonato
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de inscripciones
+
+  /campeonatos/{id}/series:
+    get:
+      tags:
+        - Campeonatos
+      summary: Obtener series de campeonato
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de series
+
+  /inscripciones:
+    get:
+      tags:
+        - Inscripciones
+      summary: Obtener todas las inscripciones
+      responses:
+        '200':
+          description: Lista de inscripciones
+    post:
+      tags:
+        - Inscripciones
+      summary: Crear nueva inscripción
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deportistaId:
+                  type: string
+                campeonatoId:
+                  type: string
+      responses:
+        '201':
+          description: Inscripción creada
+
+  /inscripciones/{id}:
+    get:
+      tags:
+        - Inscripciones
+      summary: Obtener inscripción por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Inscripción encontrada
+    put:
+      tags:
+        - Inscripciones
+      summary: Actualizar inscripción
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Inscripción actualizada
+    delete:
+      tags:
+        - Inscripciones
+      summary: Eliminar inscripción
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Inscripción eliminada
+
+  /asistencia:
+    get:
+      tags:
+        - Asistencia
+      summary: Obtener toda la asistencia
+      responses:
+        '200':
+          description: Lista de asistencia
+    post:
+      tags:
+        - Asistencia
+      summary: Crear registro de asistencia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usuarioId:
+                  type: string
+                presente:
+                  type: boolean
+                fecha:
+                  type: string
+      responses:
+        '201':
+          description: Asistencia registrada
+
+  /asistencia/{id}:
+    get:
+      tags:
+        - Asistencia
+      summary: Obtener asistencia por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Registro de asistencia
+    put:
+      tags:
+        - Asistencia
+      summary: Actualizar asistencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Asistencia actualizada
+    delete:
+      tags:
+        - Asistencia
+      summary: Eliminar asistencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asistencia eliminada
+
+  /pagos:
+    get:
+      tags:
+        - Pagos
+      summary: Obtener todos los pagos
+      responses:
+        '200':
+          description: Lista de pagos
+    post:
+      tags:
+        - Pagos
+      summary: Crear nuevo pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deportistaId:
+                  type: string
+                monto:
+                  type: number
+                fecha:
+                  type: string
+      responses:
+        '201':
+          description: Pago creado
+
+  /pagos/{id}:
+    get:
+      tags:
+        - Pagos
+      summary: Obtener pago por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pago encontrado
+    put:
+      tags:
+        - Pagos
+      summary: Actualizar pago
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Pago actualizado
+    delete:
+      tags:
+        - Pagos
+      summary: Eliminar pago
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pago eliminado
+
+  /noticias:
+    get:
+      tags:
+        - Noticias
+      summary: Obtener todas las noticias
+      responses:
+        '200':
+          description: Lista de noticias
+    post:
+      tags:
+        - Noticias
+      summary: Crear nueva noticia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                titulo:
+                  type: string
+                contenido:
+                  type: string
+      responses:
+        '201':
+          description: Noticia creada
+
+  /noticias/{id}:
+    get:
+      tags:
+        - Noticias
+      summary: Obtener noticia por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Noticia encontrada
+    put:
+      tags:
+        - Noticias
+      summary: Actualizar noticia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Noticia actualizada
+    delete:
+      tags:
+        - Noticias
+      summary: Eliminar noticia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Noticia eliminada
+
+  /vehiculos:
+    get:
+      tags:
+        - Vehículos
+      summary: Obtener todos los vehículos
+      responses:
+        '200':
+          description: Lista de vehículos
+    post:
+      tags:
+        - Vehículos
+      summary: Crear nuevo vehículo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marca:
+                  type: string
+                modelo:
+                  type: string
+                usuarioId:
+                  type: string
+      responses:
+        '201':
+          description: Vehículo creado
+
+  /vehiculos/{id}:
+    get:
+      tags:
+        - Vehículos
+      summary: Obtener vehículo por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vehículo encontrado
+    put:
+      tags:
+        - Vehículos
+      summary: Actualizar vehículo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Vehículo actualizado
+    delete:
+      tags:
+        - Vehículos
+      summary: Eliminar vehículo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vehículo eliminado
+
+  /deportistas:
+    get:
+      tags:
+        - Deportistas
+      summary: Obtener todos los deportistas
+      responses:
+        '200':
+          description: Lista de deportistas
+    post:
+      tags:
+        - Deportistas
+      summary: Crear nuevo deportista
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                usuarioId:
+                  type: string
+      responses:
+        '201':
+          description: Deportista creado
+
+  /deportistas/{id}:
+    get:
+      tags:
+        - Deportistas
+      summary: Obtener deportista por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deportista encontrado
+    put:
+      tags:
+        - Deportistas
+      summary: Actualizar deportista
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Deportista actualizado
+    delete:
+      tags:
+        - Deportistas
+      summary: Eliminar deportista
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deportista eliminado
+
+  /clubes:
+    get:
+      tags:
+        - Clubes
+      summary: Obtener todos los clubes
+      responses:
+        '200':
+          description: Lista de clubes
+    post:
+      tags:
+        - Clubes
+      summary: Crear nuevo club
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                ubicacion:
+                  type: string
+      responses:
+        '201':
+          description: Club creado
+
+  /clubes/{id}:
+    get:
+      tags:
+        - Clubes
+      summary: Obtener club por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Club encontrado
+    put:
+      tags:
+        - Clubes
+      summary: Actualizar club
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Club actualizado
+    delete:
+      tags:
+        - Clubes
+      summary: Eliminar club
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Club eliminado
+
+  /categorias:
+    get:
+      tags:
+        - Categorías
+      summary: Obtener todas las categorías
+      responses:
+        '200':
+          description: Lista de categorías
+    post:
+      tags:
+        - Categorías
+      summary: Crear nueva categoría
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                serieId:
+                  type: string
+      responses:
+        '201':
+          description: Categoría creada
+
+  /categorias/{id}:
+    get:
+      tags:
+        - Categorías
+      summary: Obtener categoría por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Categoría encontrada
+    put:
+      tags:
+        - Categorías
+      summary: Actualizar categoría
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Categoría actualizada
+    delete:
+      tags:
+        - Categorías
+      summary: Eliminar categoría
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Categoría eliminada
+
+  /series:
+    get:
+      tags:
+        - Series
+      summary: Obtener todas las series
+      responses:
+        '200':
+          description: Lista de series
+    post:
+      tags:
+        - Series
+      summary: Crear nueva serie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                nominaId:
+                  type: string
+      responses:
+        '201':
+          description: Serie creada
+
+  /series/{id}:
+    get:
+      tags:
+        - Series
+      summary: Obtener serie por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Serie encontrada
+    put:
+      tags:
+        - Series
+      summary: Actualizar serie
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Serie actualizada
+    delete:
+      tags:
+        - Series
+      summary: Eliminar serie
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Serie eliminada
+
+  /nominas:
+    get:
+      tags:
+        - Nóminas
+      summary: Obtener todas las nóminas
+      responses:
+        '200':
+          description: Lista de nóminas
+    post:
+      tags:
+        - Nóminas
+      summary: Crear nueva nómina
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                clubId:
+                  type: string
+      responses:
+        '201':
+          description: Nómina creada
+
+  /nominas/{id}:
+    get:
+      tags:
+        - Nóminas
+      summary: Obtener nómina por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Nómina encontrada
+    put:
+      tags:
+        - Nóminas
+      summary: Actualizar nómina
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Nómina actualizada
+    delete:
+      tags:
+        - Nóminas
+      summary: Eliminar nómina
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Nómina eliminada
+
+  /ramas-deportivas:
+    get:
+      tags:
+        - Ramas Deportivas
+      summary: Obtener todas las ramas deportivas
+      responses:
+        '200':
+          description: Lista de ramas deportivas
+    post:
+      tags:
+        - Ramas Deportivas
+      summary: Crear nueva rama deportiva
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                clubId:
+                  type: string
+      responses:
+        '201':
+          description: Rama deportiva creada
+
+  /ramas-deportivas/{id}:
+    get:
+      tags:
+        - Ramas Deportivas
+      summary: Obtener rama deportiva por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rama deportiva encontrada
+    put:
+      tags:
+        - Ramas Deportivas
+      summary: Actualizar rama deportiva
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Rama deportiva actualizada
+    delete:
+      tags:
+        - Ramas Deportivas
+      summary: Eliminar rama deportiva
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rama deportiva eliminada
+
+  /entrenamientos:
+    get:
+      tags:
+        - Entrenamientos
+      summary: Obtener todos los entrenamientos
+      responses:
+        '200':
+          description: Lista de entrenamientos
+    post:
+      tags:
+        - Entrenamientos
+      summary: Crear nuevo entrenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                fecha:
+                  type: string
+      responses:
+        '201':
+          description: Entrenamiento creado
+
+  /entrenamientos/{id}:
+    get:
+      tags:
+        - Entrenamientos
+      summary: Obtener entrenamiento por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entrenamiento encontrado
+    put:
+      tags:
+        - Entrenamientos
+      summary: Actualizar entrenamiento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Entrenamiento actualizado
+    delete:
+      tags:
+        - Entrenamientos
+      summary: Eliminar entrenamiento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entrenamiento eliminado
+
+components:
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        correo:
+          type: string
+        perfilId:
+          type: string
+
+    Campeonato:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        fecha_inicio:
+          type: string
+        fecha_fin:
+          type: string
+
+    Deportista:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        usuarioId:
+          type: string
+
+    Pago:
+      type: object
+      properties:
+        id:
+          type: string
+        deportistaId:
+          type: string
+        monto:
+          type: number
+        fecha:
+          type: string
