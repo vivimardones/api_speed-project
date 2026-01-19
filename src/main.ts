@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -13,6 +14,15 @@ async function bootstrap() {
       credentials: true,
     });
 
+    // Configuración de Swagger
+    const config = new DocumentBuilder()
+      .setTitle('Club Speed API')
+      .setDescription('API REST para gestión de club deportivo con Firebase')
+      .setVersion('1.0.0')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+
     // Validación global de DTOs
     app.useGlobalPipes(
       new ValidationPipe({
@@ -24,7 +34,8 @@ async function bootstrap() {
 
     const port = process.env.PORT || 3000;
     await app.listen(port);
-    console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
+    console.log(`Servidor corriendo en http://localhost:${port}`);
+    console.log(`Documentación Swagger en http://localhost:${port}/api`);
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.error('Error al iniciar NestJS:', error.message);
