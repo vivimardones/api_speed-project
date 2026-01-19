@@ -41,4 +41,41 @@ export class VehiculosController {
   remove(@Param('id') id: string) {
     return this.vehiculosService.remove(id);
   }
+
+  // Relaciones según el diagrama MER
+  @Get(':id/usuario')
+  getUsuario(@Param('id') vehiculoId: string) {
+    return this.vehiculosService.getUsuario(vehiculoId);
+  }
+
+  @Post(':id/usuario/:usuarioId')
+  assignUsuario(
+    @Param('id') vehiculoId: string,
+    @Param('usuarioId') usuarioId: string,
+  ) {
+    return this.vehiculosService.assignUsuario(vehiculoId, usuarioId);
+  }
+
+  @Get(':id/deportista')
+  getDeportista(@Param('id') vehiculoId: string) {
+    return this.vehiculosService.getDeportista(vehiculoId);
+  }
+
+  @Post(':id/deportista/:deportistaId')
+  assignDeportista(
+    @Param('id') vehiculoId: string,
+    @Param('deportistaId') deportistaId: string,
+  ) {
+    return this.vehiculosService.assignDeportista(vehiculoId, deportistaId);
+  }
+
+  @Get('usuario/:usuarioId')
+  getVehiculosByUsuario(@Param('usuarioId') usuarioId: string) {
+    return this.vehiculosService.getVehiculosByUsuario(usuarioId);
+  }
+
+  @Get('marca/:marca')
+  getVehiculosByMarca(@Param('marca') marca: string) {
+    return this.vehiculosService.getVehiculosByMarca(marca);
+  }
 }

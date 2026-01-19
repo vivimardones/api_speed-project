@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { db } from '../firebase.config';
 import {
@@ -42,5 +44,49 @@ export class PagosService {
   async remove(id: string) {
     await deleteDoc(doc(db, 'pagos', id));
     return { mensaje: `Pago con id ${id} eliminado` };
+  }
+
+  // Relaciones
+  async getDeportista(pagoId: string) {
+    const pagoDoc = await getDoc(doc(db, 'pagos', pagoId));
+    if (pagoDoc.exists()) {
+      const deportistaId = pagoDoc.data().deportistaId as string;
+      if (deportistaId) {
+        const deportista = await getDoc(doc(db, 'deportistas', deportistaId));
+        return deportista.exists()
+          ? { id: deportista.id, ...deportista.data() }
+          : null;
+      }
+    }
+    return null;
+  }
+
+  async assignDeportista(pagoId: string, deportistaId: string) {
+    await updateDoc(doc(db, 'pagos', pagoId), { deportistaId });
+    return { message: `Deportista ${deportistaId} asignado a pago ${pagoId}` };
+  }
+
+  async getPagosByDeportista(deportistaId: string) {
+    const snapshot = await getDocs(this.pagosCollection);
+    return snapshot.docs
+      .filter((doc) => doc.data().deportistaId === deportistaId)
+      .map((doc) => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async getPagosByEstado(estado: string) {
+    const snapshot = await getDocs(this.pagosCollection);
+    return snapshot.docs
+      .filter((doc) => doc.data().estado === estado)
+      .map((doc) => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async getPagosByFecha(fechaInicio: string, fechaFin: string) {
+    const snapshot = await getDocs(this.pagosCollection);
+    return snapshot.docs
+      .filter((doc) => {
+        const fecha = doc.data().fecha as string;
+        return fecha >= fechaInicio && fecha <= fechaFin;
+      })
+      .map((doc) => ({ id: doc.id, ...doc.data() }));
   }
 }

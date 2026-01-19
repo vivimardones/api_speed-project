@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Controller,
   Get,
@@ -36,6 +38,38 @@ export class PagosController {
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return { mensaje: `Pago con id ${id} eliminado` };
+    return this.pagosService.remove(id);
+  }
+
+  // Relaciones según el diagrama MER
+  @Get(':id/deportista')
+  getDeportista(@Param('id') pagoId: string) {
+    return this.pagosService.getDeportista(pagoId);
+  }
+
+  @Post(':id/deportista/:deportistaId')
+  assignDeportista(
+    @Param('id') pagoId: string,
+    @Param('deportistaId') deportistaId: string,
+  ) {
+    return this.pagosService.assignDeportista(pagoId, deportistaId);
+  }
+
+  @Get('deportista/:deportistaId')
+  getPagosByDeportista(@Param('deportistaId') deportistaId: string) {
+    return this.pagosService.getPagosByDeportista(deportistaId);
+  }
+
+  @Get('estado/:estado')
+  getPagosByEstado(@Param('estado') estado: string) {
+    return this.pagosService.getPagosByEstado(estado);
+  }
+
+  @Get('rango-fecha/:fechaInicio/:fechaFin')
+  getPagosByFecha(
+    @Param('fechaInicio') fechaInicio: string,
+    @Param('fechaFin') fechaFin: string,
+  ) {
+    return this.pagosService.getPagosByFecha(fechaInicio, fechaFin);
   }
 }

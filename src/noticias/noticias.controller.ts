@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Controller,
   Get,
@@ -15,27 +17,58 @@ export class NoticiasController {
   constructor(private readonly noticiasService: NoticiasService) {}
 
   @Get()
-  findAll() {
-    return this.noticiasService.findAll();
+  async findAll() {
+    return await this.noticiasService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.noticiasService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return await this.noticiasService.findOne(id);
   }
 
   @Post()
-  create(@Body() noticia: CreateNoticiaDto) {
-    return this.noticiasService.create(noticia);
+  async create(@Body() noticia: CreateNoticiaDto) {
+    return await this.noticiasService.create(noticia);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() noticia: CreateNoticiaDto) {
-    return this.noticiasService.update(id, noticia);
+  async update(@Param('id') id: string, @Body() noticia: CreateNoticiaDto) {
+    return await this.noticiasService.update(id, noticia);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.noticiasService.remove(id);
+  async remove(@Param('id') id: string) {
+    return await this.noticiasService.remove(id);
+  }
+
+  // Relaciones según el diagrama MER
+  @Get(':id/rama-deportiva')
+  async getRamaDeportiva(@Param('id') noticiaId: string) {
+    return await this.noticiasService.getRamaDeportiva(noticiaId);
+  }
+
+  @Post(':id/rama-deportiva/:ramaDeportivaId')
+  async assignRamaDeportiva(
+    @Param('id') noticiaId: string,
+    @Param('ramaDeportivaId') ramaDeportivaId: string,
+  ) {
+    return await this.noticiasService.assignRamaDeportiva(
+      noticiaId,
+      ramaDeportivaId,
+    );
+  }
+
+  @Get('rama-deportiva/:ramaDeportivaId')
+  async getNoticiasByRamaDeportiva(
+    @Param('ramaDeportivaId') ramaDeportivaId: string,
+  ) {
+    return await this.noticiasService.getNoticiasByRamaDeportiva(
+      ramaDeportivaId,
+    );
+  }
+
+  @Get('categoria/:categoria')
+  async getNoticiasByCategoria(@Param('categoria') categoria: string) {
+    return await this.noticiasService.getNoticiasByCategoria(categoria);
   }
 }
