@@ -15,6 +15,8 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
 import { RolesController } from './roles/roles.controller';
 import { RolesService } from './roles/roles.service';
 import { RolesModule } from './roles/roles.module';
+import { AuthController } from './auth/auth.controller';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -27,6 +29,7 @@ import { RolesModule } from './roles/roles.module';
     NoticiasModule,
     VehiculosModule,
     RolesModule,
+    AuthModule,
   ],
   controllers: [
     AsistenciaController,
@@ -35,6 +38,7 @@ import { RolesModule } from './roles/roles.module';
     NoticiasController,
     VehiculosController,
     RolesController,
+    AuthController,
   ],
   providers: [RolesService],
 })
