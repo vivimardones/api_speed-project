@@ -25,9 +25,9 @@ export class AuthService {
 
     // Buscar perfil asociado si existe perfilId
     let perfil: any = null;
-    if (usuario.perfilId) {
+    if (usuario.perfilId && typeof usuario.perfilId === 'string') {
       try {
-        const perfilRef = doc(db, 'perfil', usuario.perfilId);
+        const perfilRef = doc(db, 'perfil', usuario.perfilId as string);
         const perfilSnap = await getDoc(perfilRef);
 
         if (!perfilSnap.exists()) {
@@ -39,17 +39,19 @@ export class AuthService {
         // Validar contraseña del perfil
         const isPasswordValid = await bcrypt.compare(
           dto.password,
-          perfil.password,
+          perfil.password as string,
         );
         if (!isPasswordValid)
           throw new UnauthorizedException('Contraseña incorrecta');
 
         // Validar fechas del perfil
         const now = new Date();
-        if (perfil.fechaActivacion && now < new Date(perfil.fechaActivacion)) {
+        const fechaActivacion = perfil.fechaActivacion as string | Date | undefined;
+        const fechaExpiracion = perfil.fechaExpiracion as string | Date | undefined;
+        if (fechaActivacion && now < new Date(fechaActivacion)) {
           throw new UnauthorizedException('Cuenta aún no está activa');
         }
-        if (perfil.fechaExpiracion && now > new Date(perfil.fechaExpiracion)) {
+        if (fechaExpiracion && now > new Date(fechaExpiracion)) {
           throw new UnauthorizedException('Cuenta expirada');
         }
       } catch (error: any) {

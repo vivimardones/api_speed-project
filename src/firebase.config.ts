@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || '',
@@ -18,6 +18,6 @@ export const db = getFirestore(app);
 try {
   // Esta configuración puede variar según el entorno
   console.log('✅ Firebase Firestore inicializado con Web SDK');
-} catch (error) {
+} catch {
   console.log('ℹ️ Offlin persistence no soportado en este entorno');
 }
