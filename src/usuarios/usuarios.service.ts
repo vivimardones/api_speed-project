@@ -15,6 +15,7 @@ import {
   query,
   where,
 } from 'firebase/firestore';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsuariosService {
@@ -153,42 +154,48 @@ export class UsuariosService {
   }
 
   // Crear admin con profile y contraseña
-  async createAdminWithProfile(adminData: any) {
-    // Crear documento en usuarios
-    const usuarioData = {
-      nombre: adminData.nombre,
-      email: adminData.email,
-      fechaNacimiento: adminData.fechaNacimiento,
-      idRol: 'admin',
-      fechaRegistro: new Date().toISOString(),
-      activo: true,
-    };
+  async createAdminWithProfile(adminData: {
+    password: string;
+    nombre: string;
+    email: string;
+    fechaNacimiento: string;
+    idRol: string;
+  }) {
+    console.log('Iniciando creación de admin:', adminData);
 
-    const usuarioDoc = await addDoc(this.usuariosCollection, usuarioData);
+    try {
+      // Encriptar contraseña
+      console.log('[Paso 1] Encriptando contraseña...');
+      if (typeof adminData.password !== 'string') {
+        throw new Error('La contraseña debe ser una cadena de texto');
+      }
+      const hashedPassword = await bcrypt.hash(adminData.password, 10);
+      console.log('[Paso 1] ✓ Contraseña encriptada');
 
-    // Crear documento en perfiles con la contraseña
-    const perfilesCollection = collection(db, 'perfiles');
-    const perfilData = {
-      usuarioId: usuarioDoc.id,
-      email: adminData.email,
-      password: adminData.password,
-      rol: 'admin',
-      createdAt: new Date().toISOString(),
-      activo: true,
-    };
+      // Crear documento en usuarios con rol admin
+      console.log('[Paso 2] Creando admin en colección usuarios...');
+      const usuarioData = {
+        nombre: adminData.nombre,
+        email: adminData.email,
+        fechaNacimiento: adminData.fechaNacimiento,
+        password: hashedPassword,
+        idRol: adminData.idRol,
+        fechaRegistro: new Date().toISOString(),
+        activo: true,
+      };
 
-    const perfilDoc = await addDoc(perfilesCollection, perfilData);
+      const usuarioDoc = await addDoc(this.usuariosCollection, usuarioData);
+      console.log('Admin creado con ID:', usuarioDoc.id, 'y rol: admin');
 
-    // Actualizar usuario con referencia al perfil
-    await updateDoc(doc(db, 'usuarios', usuarioDoc.id), {
-      perfilId: perfilDoc.id,
-    });
-
-    return {
-      id: usuarioDoc.id,
-      ...usuarioData,
-      perfilId: perfilDoc.id,
-      message: 'Admin creado con perfil exitosamente',
-    };
+      console.log('[createAdminWithProfile] ✓ Admin creado exitosamente');
+      return {
+        id: usuarioDoc.id,
+        ...usuarioData,
+        message: 'Admin creado exitosamente con rol admin',
+      };
+    } catch (error) {
+      console.error('[createAdminWithProfile] ❌ Error:', error);
+      throw error;
+    }
   }
 }

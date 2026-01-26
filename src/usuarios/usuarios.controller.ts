@@ -46,6 +46,7 @@ export class UsuariosController {
         data: nuevoAdmin,
       };
     } catch (error: unknown) {
+      console.error('Error al crear admin:', error);
       let message = 'Unknown error';
       if (error instanceof Error) {
         message = error.message;

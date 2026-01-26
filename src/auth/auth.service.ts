@@ -39,12 +39,32 @@ export class AuthService {
       throw new UnauthorizedException('Contraseña incorrecta');
     }
 
-    // Retornar datos del usuario autenticado
+    // Buscar el perfil del usuario
+    const perfilesCollection = collection(db, 'perfiles');
+    const perfilQuery = query(
+      perfilesCollection,
+      where('email', '==', dto.email),
+    );
+    const perfilSnapshot = await getDocs(perfilQuery);
+
+    let perfil: any = null;
+    if (!perfilSnapshot.empty) {
+      const perfilDoc = perfilSnapshot.docs[0];
+      perfil = {
+        id: perfilDoc.id,
+        ...perfilDoc.data(),
+      };
+      // No incluir password en la respuesta
+      delete perfil.password;
+    }
+
+    // Retornar datos del usuario autenticado con perfil
     return {
       id: loginDoc.id,
       nombre: loginData.nombre,
       email: loginData.email,
       fechaNacimiento: loginData.fechaNacimiento,
+      idRol: loginData.idRol,
       timestamp: new Date(),
     };
   }
@@ -74,6 +94,7 @@ export class AuthService {
       email: dto.email,
       password: hashedPassword,
       fechaNacimiento: dto.fechaNacimiento,
+      idRol: 'user',
       fechaRegistro: new Date().toISOString(),
     };
     const loginCreado = await addDoc(loginCollection, nuevoLogin);
