@@ -8,10 +8,9 @@ import {
 } from '@nestjs/common';
 import { LoginDto } from './loginDto';
 import { RegisterUserDto } from './registerUserDto';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { db } from '../firebase.config';
-import { doc, getDoc } from 'firebase/firestore';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -19,61 +18,33 @@ export class AuthService {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   async login(dto: LoginDto) {
-    // Buscar usuario
-    const usuario: any = await this.usuariosService.findOne(dto.idUsuario);
-    if (!usuario) throw new UnauthorizedException('Usuario no encontrado');
+    // Buscar usuario en colección login por email
+    const loginCollection = collection(db, 'login');
+    const q = query(loginCollection, where('email', '==', dto.email));
+    const snapshot = await getDocs(q);
 
-    // Buscar perfil asociado si existe perfilId
-    let perfil: any = null;
-    if (usuario.perfilId && typeof usuario.perfilId === 'string') {
-      try {
-        const perfilRef = doc(db, 'perfil', usuario.perfilId as string);
-        const perfilSnap = await getDoc(perfilRef);
-
-        if (!perfilSnap.exists()) {
-          throw new UnauthorizedException('Perfil no encontrado');
-        }
-
-        perfil = perfilSnap.data();
-
-        // Validar contraseña del perfil
-        const isPasswordValid = await bcrypt.compare(
-          dto.password,
-          perfil.password as string,
-        );
-        if (!isPasswordValid)
-          throw new UnauthorizedException('Contraseña incorrecta');
-
-        // Validar fechas del perfil
-        const now = new Date();
-        const fechaActivacion = perfil.fechaActivacion as string | Date | undefined;
-        const fechaExpiracion = perfil.fechaExpiracion as string | Date | undefined;
-        if (fechaActivacion && now < new Date(fechaActivacion)) {
-          throw new UnauthorizedException('Cuenta aún no está activa');
-        }
-        if (fechaExpiracion && now > new Date(fechaExpiracion)) {
-          throw new UnauthorizedException('Cuenta expirada');
-        }
-      } catch (error: any) {
-        if (
-          error.message === 'Perfil no encontrado' ||
-          error.message === 'Contraseña incorrecta' ||
-          error.message === 'Cuenta aún no está activa' ||
-          error.message === 'Cuenta expirada'
-        ) {
-          throw error;
-        }
-        throw new UnauthorizedException('Error al validar perfil');
-      }
+    if (snapshot.empty) {
+      throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    // Retornar datos básicos (más adelante puedes agregar JWT)
+    const loginDoc = snapshot.docs[0];
+    const loginData: any = loginDoc.data();
+
+    // Validar contraseña
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      loginData.password as string,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Contraseña incorrecta');
+    }
+
+    // Retornar datos del usuario autenticado
     return {
-      id: usuario.id,
-      idUsuario: usuario.idUsuario || usuario.id,
-      nombre: usuario.nombreCompleto || usuario.nombre,
-      correo: usuario.correo || usuario.email,
-      perfil: perfil?.nombre || 'usuario',
+      id: loginDoc.id,
+      nombre: loginData.nombre,
+      email: loginData.email,
+      fechaNacimiento: loginData.fechaNacimiento,
       timestamp: new Date(),
     };
   }

@@ -6,13 +6,55 @@ import {
   Param,
   Put,
   Delete,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateUsuarioDto } from './CreateUsuarioDto';
 import { UsuariosService } from './usuarios.service';
+import { RegisterUserDto } from '../auth/registerUserDto';
 
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
+
+  // Endpoint especial para crear el primer ADMIN sin autenticación (bootstrap)
+  // DEBE estar ANTES de @Post() para que NestJS lo capture
+  @Post('bootstrap/admin')
+  async createFirstAdmin(@Body() adminData: RegisterUserDto) {
+    try {
+      // Verificar que no hay admins en el sistema
+      const admins = (await this.usuariosService.findByRole(
+        'admin',
+      )) as unknown as CreateUsuarioDto[];
+      if (admins.length > 0) {
+        throw new BadRequestException(
+          'Ya existe un administrador en el sistema. No se puede crear otro.',
+        );
+      }
+
+      // Crear el usuario admin con perfil y contraseña
+      const nuevoAdmin = await this.usuariosService.createAdminWithProfile({
+        nombre: adminData.nombre,
+        email: adminData.email,
+        password: adminData.password,
+        fechaNacimiento: adminData.fechaNacimiento,
+        idRol: 'admin',
+      });
+
+      return {
+        success: true,
+        message: 'Administrador creado exitosamente',
+        data: nuevoAdmin,
+      };
+    } catch (error: unknown) {
+      let message = 'Unknown error';
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      }
+      throw new BadRequestException(message);
+    }
+  }
 
   @Get()
   findAll() {

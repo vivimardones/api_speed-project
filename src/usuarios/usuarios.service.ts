@@ -12,6 +12,8 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 
 @Injectable()
@@ -21,11 +23,18 @@ export class UsuariosService {
     const snapshot = await getDocs(this.usuariosCollection);
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   }
-  async findOne(id: string) {
-    const usuarioDoc = await getDoc(doc(db, 'usuarios', id));
-    return usuarioDoc.exists()
-      ? { id: usuarioDoc.id, ...usuarioDoc.data() }
-      : null;
+  async findOne(email: string) {
+    const q = query(this.usuariosCollection, where('correo', '==', email));
+    const snapshot = await getDocs(q);
+    const doc = snapshot.docs[0];
+    return doc ? { id: doc.id, ...doc.data() } : null;
+  }
+
+  // Buscar usuarios por rol
+  async findByRole(role: string) {
+    const q = query(this.usuariosCollection, where('idRol', '==', role));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   }
   async create(usuario: CreateUsuarioDto) {
     const nuevoUsuario = await addDoc(this.usuariosCollection, usuario);
@@ -141,5 +150,45 @@ export class UsuariosService {
       createdAt: new Date(),
     });
     return { id: nuevoAportado.id, ...aportadoData };
+  }
+
+  // Crear admin con profile y contraseña
+  async createAdminWithProfile(adminData: any) {
+    // Crear documento en usuarios
+    const usuarioData = {
+      nombre: adminData.nombre,
+      email: adminData.email,
+      fechaNacimiento: adminData.fechaNacimiento,
+      idRol: 'admin',
+      fechaRegistro: new Date().toISOString(),
+      activo: true,
+    };
+
+    const usuarioDoc = await addDoc(this.usuariosCollection, usuarioData);
+
+    // Crear documento en perfiles con la contraseña
+    const perfilesCollection = collection(db, 'perfiles');
+    const perfilData = {
+      usuarioId: usuarioDoc.id,
+      email: adminData.email,
+      password: adminData.password,
+      rol: 'admin',
+      createdAt: new Date().toISOString(),
+      activo: true,
+    };
+
+    const perfilDoc = await addDoc(perfilesCollection, perfilData);
+
+    // Actualizar usuario con referencia al perfil
+    await updateDoc(doc(db, 'usuarios', usuarioDoc.id), {
+      perfilId: perfilDoc.id,
+    });
+
+    return {
+      id: usuarioDoc.id,
+      ...usuarioData,
+      perfilId: perfilDoc.id,
+      message: 'Admin creado con perfil exitosamente',
+    };
   }
 }
