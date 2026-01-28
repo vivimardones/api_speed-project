@@ -69,8 +69,13 @@ export class AuthService {
     };
   }
   async register(dto: RegisterUserDto) {
-    // Validar campos
-    if (!dto.nombre || !dto.email || !dto.password || !dto.fechaNacimiento) {
+    if (
+      !dto.nombre ||
+      !dto.email ||
+      !dto.password ||
+      !dto.fechaNacimiento ||
+      !dto.idRol
+    ) {
       throw new BadRequestException('Todos los campos son obligatorios');
     }
 
@@ -94,7 +99,7 @@ export class AuthService {
       email: dto.email,
       password: hashedPassword,
       fechaNacimiento: dto.fechaNacimiento,
-      idRol: 'user',
+      idRol: dto.idRol,
       fechaRegistro: new Date().toISOString(),
     };
     const loginCreado = await addDoc(loginCollection, nuevoLogin);
@@ -106,6 +111,7 @@ export class AuthService {
         nombre: nuevoLogin.nombre,
         email: nuevoLogin.email,
         fechaNacimiento: nuevoLogin.fechaNacimiento,
+        idRol: nuevoLogin.idRol,
       },
     };
   }

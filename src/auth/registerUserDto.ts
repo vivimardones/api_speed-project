@@ -16,4 +16,8 @@ export class RegisterUserDto {
   @IsNotEmpty()
   @IsString()
   fechaNacimiento: string;
+
+  @IsNotEmpty()
+  @IsString()
+  idRol: string;
 }
