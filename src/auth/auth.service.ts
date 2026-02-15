@@ -9,6 +9,7 @@ import {
 import { LoginDto } from './loginDto';
 import { RegisterUserDto } from './registerUserDto';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { logToFile } from '../utils/logger';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { db } from '../firebase.config';
 import * as bcrypt from 'bcrypt';
@@ -43,7 +44,7 @@ export class AuthService {
     const perfilesCollection = collection(db, 'perfiles');
     const perfilQuery = query(
       perfilesCollection,
-      where('email', '==', dto.email),
+      where('correo', '==', dto.email),
     );
     const perfilSnapshot = await getDocs(perfilQuery);
 
@@ -66,6 +67,8 @@ export class AuthService {
       fechaNacimiento: loginData.fechaNacimiento,
       idRol: loginData.idRol,
       timestamp: new Date(),
+      deportista: loginData.deportista || null,
+      perfil: perfil,
     };
   }
   async register(dto: RegisterUserDto) {
@@ -104,15 +107,104 @@ export class AuthService {
     };
     const loginCreado = await addDoc(loginCollection, nuevoLogin);
 
-    return {
-      message: 'Usuario de login registrado exitosamente',
-      usuario: {
-        id: loginCreado.id,
-        nombre: nuevoLogin.nombre,
-        email: nuevoLogin.email,
-        fechaNacimiento: nuevoLogin.fechaNacimiento,
-        idRol: nuevoLogin.idRol,
-      },
-    };
+    // Crear perfil de usuario en colección 'perfiles'
+    try {
+      const perfilesCollection = collection(db, 'perfiles');
+      const createdAt = new Date();
+      // Por defecto expiración a 1 año, excepto rol 'admin'
+      let expiresAt: string | null = null;
+      const rolLower = String(dto.idRol).toLowerCase();
+      if (rolLower !== 'admin') {
+        const exp = new Date(createdAt);
+        exp.setFullYear(exp.getFullYear() + 1);
+        expiresAt = exp.toISOString();
+      }
+
+      const nuevoPerfil: any = {
+        correo: dto.email,
+        idClub: null,
+        createdAt: createdAt.toISOString(),
+        expiresAt: expiresAt,
+        nombreRol: dto.idRol,
+        loginId: loginCreado.id,
+      };
+      const perfilCreado = await addDoc(perfilesCollection, nuevoPerfil);
+
+      return {
+        message: 'Usuario de login y perfil registrados exitosamente',
+        usuario: {
+          id: loginCreado.id,
+          nombre: nuevoLogin.nombre,
+          email: nuevoLogin.email,
+          fechaNacimiento: nuevoLogin.fechaNacimiento,
+          idRol: nuevoLogin.idRol,
+        },
+        perfil: { id: perfilCreado.id, ...nuevoPerfil },
+      };
+    } catch (err) {
+      // En caso de fallo al crear perfil, devolver igualmente el login creado
+      return {
+        message:
+          'Usuario registrado en login, pero falló la creación del perfil',
+        usuario: {
+          id: loginCreado.id,
+          nombre: nuevoLogin.nombre,
+          email: nuevoLogin.email,
+          fechaNacimiento: nuevoLogin.fechaNacimiento,
+          idRol: nuevoLogin.idRol,
+        },
+        perfilError: String(err),
+      };
+    }
   }
+
+  /* eslint-disable @typescript-eslint/no-unsafe-return */
+  async getAllLogins() {
+    logToFile('Llamada a getAllLogins iniciada');
+    try {
+      const loginCollection = collection(db, 'login');
+      const snapshot = await getDocs(loginCollection);
+
+      const logins = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+          const data = doc.data();
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { password, ...resto } = data as any;
+
+          // Buscar el perfil asociado a este login
+          const perfilesCollection = collection(db, 'perfiles');
+          const perfilQuery = query(
+            perfilesCollection,
+            where('correo', '==', (data as any).email),
+          );
+          const perfilSnapshot = await getDocs(perfilQuery);
+
+          let perfil: any = null;
+          if (!perfilSnapshot.empty) {
+            const perfilDoc = perfilSnapshot.docs[0];
+            perfil = {
+              id: perfilDoc.id,
+              ...perfilDoc.data(),
+            };
+            // No incluir password si existe
+            delete perfil.password;
+          }
+
+          return {
+            id: doc.id,
+            ...resto,
+            perfil: perfil,
+          };
+        }),
+      );
+      logToFile(`getAllLogins completado. Total usuarios: ${logins.length}`);
+      return logins;
+    } catch (error) {
+      logToFile(
+        `Error en getAllLogins: ${error instanceof Error ? error.stack : error}`,
+      );
+      throw error;
+    }
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-return */
 }
