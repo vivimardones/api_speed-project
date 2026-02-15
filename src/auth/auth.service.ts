@@ -25,16 +25,13 @@ import * as bcrypt from 'bcrypt';
 export class AuthService {
   constructor(
     private readonly usuariosService: UsuariosService,
-    private readonly edadService: EdadService, // ← NUEVO
+    private readonly edadService: EdadService,
   ) {}
 
-  /**
-   * Iniciar sesión
-   */
   async login(dto: LoginDto) {
-    // Buscar usuario en colección login por correo
+    // Buscar usuario en colección login por CORREO (no email)
     const loginCollection = collection(db, 'login');
-    const q = query(loginCollection, where('correo', '==', dto.correo));
+    const q = query(loginCollection, where('correo', '==', dto.correo)); // ← CORRECTO
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -63,27 +60,19 @@ export class AuthService {
     // Calcular edad actual
     const edad = this.edadService.calcularEdad(loginData.fechaNacimiento);
 
-    // Verificar si cumplió 18 años y liberar apoderado
-    if (edad >= 18 && loginData.requiereApoderado) {
-      // TODO: Aquí se ejecutará la liberación automática
-      // Por ahora solo devolvemos info
-    }
-
     // Retornar datos del usuario autenticado
     return {
       id: loginDoc.id,
       correo: loginData.correo,
       fechaNacimiento: loginData.fechaNacimiento,
       rol: loginData.rol,
+      estado: loginData.estado,
       edad: edad,
       requiereApoderado: edad < 18,
       timestamp: new Date(),
     };
   }
 
-  /**
-   * Registrar un nuevo login (solo mayores de 10 años)
-   */
   async register(dto: RegisterUserDto) {
     // Validar que los campos estén completos
     if (!dto.correo || !dto.password || !dto.fechaNacimiento) {
@@ -122,10 +111,10 @@ export class AuthService {
       correo: dto.correo,
       password: hashedPassword,
       fechaNacimiento: dto.fechaNacimiento,
-      rol: 'standard', // ← Se asigna automáticamente
-      estado: 'activo', // ← Por defecto activo
-      createdAt: Timestamp.now(), // ← Servidor genera fecha
-      updatedAt: Timestamp.now(), // ← Servidor genera fecha
+      rol: 'standard',
+      estado: 'activo',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     };
 
     const loginCreado = await addDoc(loginCollection, nuevoLogin);
@@ -138,7 +127,7 @@ export class AuthService {
       correo: dto.correo,
       edad: edad,
       requiereApoderado: edad < 18,
-      requiereUsuario: true, // Debe completar datos en /usuarios
+      requiereUsuario: true,
       mensaje:
         edad < 18
           ? 'Login creado. Debes completar tus datos personales y asignar un apoderado.'
