@@ -2,6 +2,7 @@
 
 import { Module, Global } from '@nestjs/common';
 import { EdadService } from './edad.service';
+import { RutService } from './rut.service';
 
 /**
  * Módulo compartido con servicios reutilizables
@@ -10,7 +11,7 @@ import { EdadService } from './edad.service';
  */
 @Global()
 @Module({
-  providers: [EdadService],
-  exports: [EdadService],
+  providers: [EdadService, RutService],
+  exports: [EdadService, RutService],
 })
 export class SharedModule {}
