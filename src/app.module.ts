@@ -15,10 +15,12 @@ import { SeriesModule } from './series/series.module';
 import { NominasModule } from './nominas/nominas.module';
 import { RamasDeportivasModule } from './ramas-deportivas/ramas-deportivas.module';
 import { EntrenamientosModule } from './entrenamientos/entrenamientos.module';
+import { SharedModule } from './shared/shared.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    SharedModule,
     UsuariosModule,
     CampeonatosModule,
     InscripcionesModule,
