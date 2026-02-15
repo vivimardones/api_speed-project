@@ -33,8 +33,7 @@ export class UsuariosController {
 
       // Crear el usuario admin con perfil y contraseña
       const nuevoAdmin = await this.usuariosService.createAdminWithProfile({
-        nombre: adminData.nombre,
-        email: adminData.email,
+        correo: adminData.correo,
         password: adminData.password,
         fechaNacimiento: adminData.fechaNacimiento,
         idRol: 'admin',

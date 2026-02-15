@@ -29,7 +29,7 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    // Buscar usuario en colección login por CORREO (no email)
+    // Buscar usuario en colección login por correo
     const loginCollection = collection(db, 'login');
     const q = query(loginCollection, where('correo', '==', dto.correo)); // ← CORRECTO
     const snapshot = await getDocs(q);

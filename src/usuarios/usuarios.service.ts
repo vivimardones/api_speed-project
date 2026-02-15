@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
 import { CreateUsuarioDto } from './CreateUsuarioDto';
 import { db } from '../firebase.config';
@@ -156,8 +157,7 @@ export class UsuariosService {
   // Crear admin con profile y contraseña
   async createAdminWithProfile(adminData: {
     password: string;
-    nombre: string;
-    email: string;
+    correo: string;
     fechaNacimiento: string;
     idRol: string;
   }) {
@@ -175,8 +175,7 @@ export class UsuariosService {
       // Crear documento en usuarios con rol admin
       console.log('[Paso 2] Creando admin en colección usuarios...');
       const usuarioData = {
-        nombre: adminData.nombre,
-        email: adminData.email,
+        correo: adminData.correo,
         fechaNacimiento: adminData.fechaNacimiento,
         password: hashedPassword,
         idRol: adminData.idRol,
