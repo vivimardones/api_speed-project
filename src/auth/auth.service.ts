@@ -72,13 +72,7 @@ export class AuthService {
     };
   }
   async register(dto: RegisterUserDto) {
-    if (
-      !dto.nombre ||
-      !dto.email ||
-      !dto.password ||
-      !dto.fechaNacimiento ||
-      !dto.idRol
-    ) {
+    if (!dto.correo || !dto.password || !dto.fechaNacimiento) {
       throw new BadRequestException('Todos los campos son obligatorios');
     }
 
@@ -87,7 +81,7 @@ export class AuthService {
     const snapshot = await getDocs(loginCollection);
     const existe = snapshot.docs.find((doc) => {
       const data = doc.data();
-      return data.email === dto.email;
+      return data.email === dto.correo;
     });
     if (existe) {
       throw new BadRequestException('El email ya está registrado');
@@ -98,11 +92,9 @@ export class AuthService {
 
     // Crear login
     const nuevoLogin: any = {
-      nombre: dto.nombre,
-      email: dto.email,
+      email: dto.correo,
       password: hashedPassword,
       fechaNacimiento: dto.fechaNacimiento,
-      idRol: dto.idRol,
       fechaRegistro: new Date().toISOString(),
     };
     const loginCreado = await addDoc(loginCollection, nuevoLogin);
@@ -111,27 +103,23 @@ export class AuthService {
     try {
       const perfilesCollection = collection(db, 'perfiles');
       const createdAt = new Date();
-      // Por defecto expiración a 1 año, excepto rol 'admin'
-      let expiresAt: string | null = null;
-      const rolLower = String(dto.idRol).toLowerCase();
-      if (rolLower !== 'admin') {
-        const exp = new Date(createdAt);
-        exp.setFullYear(exp.getFullYear() + 1);
-        expiresAt = exp.toISOString();
-      }
+      // Expiración fija a 1 año para usuarios estándar
+      const exp = new Date(createdAt);
+      exp.setFullYear(exp.getFullYear() + 1);
+      const expiresAt = exp.toISOString();
 
       const nuevoPerfil: any = {
-        correo: dto.email,
+        correo: dto.correo,
         idClub: null,
         createdAt: createdAt.toISOString(),
         expiresAt: expiresAt,
-        nombreRol: dto.idRol,
         loginId: loginCreado.id,
+        rol: 'standard', // Rol inicial según reglas de negocio
       };
       const perfilCreado = await addDoc(perfilesCollection, nuevoPerfil);
 
       return {
-        message: 'Usuario de login y perfil registrados exitosamente',
+        message: 'Usuario de login y perfil registrados exitosamente.',
         usuario: {
           id: loginCreado.id,
           nombre: nuevoLogin.nombre,
