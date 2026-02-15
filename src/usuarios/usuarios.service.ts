@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
-import { CreateUsuarioDto } from './CreateUsuarioDto';
+import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { db } from '../firebase.config';
 import {
   collection,

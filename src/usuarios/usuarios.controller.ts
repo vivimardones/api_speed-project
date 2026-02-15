@@ -8,7 +8,7 @@ import {
   Delete,
   BadRequestException,
 } from '@nestjs/common';
-import { CreateUsuarioDto } from './CreateUsuarioDto';
+import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UsuariosService } from './usuarios.service';
 import { RegisterUserDto } from '../auth/registerUserDto';
 
