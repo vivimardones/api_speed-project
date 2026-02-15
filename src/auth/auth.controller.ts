@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { logToFile } from '../utils/logger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './loginDto';
@@ -18,11 +18,5 @@ export class AuthController {
   async register(@Body() dto: RegisterUserDto) {
     logToFile('POST /auth/register llamado');
     return await this.authService.register(dto);
-  }
-
-  @Get('login')
-  async getAllLogins() {
-    logToFile('GET /auth/login llamado');
-    return this.authService.getAllLogins();
   }
 }
