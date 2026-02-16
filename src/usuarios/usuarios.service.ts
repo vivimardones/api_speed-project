@@ -21,6 +21,11 @@ import {
 import { db } from '../firebase.config';
 import { CreateUsuarioDto, UpdateUsuarioDto, TipoIdentificador } from './dto';
 import { IUsuario } from './interfaces/usuario.interface';
+import {
+  CreateUsuarioResponse,
+  UpdateUsuarioResponse,
+  DeleteUsuarioResponse,
+} from './interfaces/usuario-response.interface';
 import { RutService } from '../shared/rut.service';
 import { EdadService } from '../shared/edad.service';
 
@@ -36,7 +41,9 @@ export class UsuariosService {
   /**
    * Crear un nuevo usuario
    */
-  async create(createUsuarioDto: CreateUsuarioDto) {
+  async create(
+    createUsuarioDto: CreateUsuarioDto,
+  ): Promise<CreateUsuarioResponse> {
     // 1. Validar fecha de nacimiento
     if (!this.edadService.esFechaValida(createUsuarioDto.fechaNacimiento)) {
       throw new BadRequestException('La fecha de nacimiento no es válida');
@@ -47,14 +54,19 @@ export class UsuariosService {
       createUsuarioDto.fechaNacimiento,
     );
 
+    // Variables de control
+    let requiereApoderado = false;
+    let advertenciaApoderado = false;
+
     // 3. Validar reglas de negocio según edad
     if (edad < 10) {
-      // MENOR DE 10 AÑOS
+      // NIÑO (< 10 AÑOS)
       // - NO puede tener loginId
-      // - DEBE tener apoderadoId
+      // - DEBE tener apoderadoId (OBLIGATORIO)
+
       if (createUsuarioDto.loginId) {
         throw new BadRequestException(
-          'Los menores de 10 años no pueden tener un login asociado. Debe ser registrado por su apoderado.',
+          'Los menores de 10 años no pueden tener un login propio.',
         );
       }
 
@@ -66,22 +78,32 @@ export class UsuariosService {
 
       // Verificar que el apoderado existe y es mayor de 18 años
       await this.verificarApoderadoValido(createUsuarioDto.apoderadoId);
+      requiereApoderado = true;
     } else if (edad >= 10 && edad < 18) {
-      // ENTRE 10 Y 17 AÑOS
-      // - PUEDE tener loginId (opcional)
-      // - DEBE tener apoderadoId
-      if (!createUsuarioDto.apoderadoId) {
+      // ADOLESCENTE (10-17 AÑOS)
+      // - loginId es OPCIONAL
+      // - apoderadoId es OPCIONAL (temporal, debe asignarse después)
+
+      if (createUsuarioDto.apoderadoId) {
+        // Si tiene apoderado, verificar que sea válido
+        await this.verificarApoderadoValido(createUsuarioDto.apoderadoId);
+        requiereApoderado = true;
+      } else {
+        // No tiene apoderado, pero se permite (advertencia)
+        advertenciaApoderado = true;
+        requiereApoderado = true; // Sí requiere, pero se puede asignar después
+      }
+    } else {
+      // ADULTO (>= 18 AÑOS)
+      // - DEBE tener loginId (OBLIGATORIO)
+      // - NO puede tener apoderadoId
+
+      if (!createUsuarioDto.loginId) {
         throw new BadRequestException(
-          'Los menores de 18 años deben tener un apoderado asignado.',
+          'Los mayores de 18 años deben tener un login asociado.',
         );
       }
 
-      // Verificar que el apoderado existe y es mayor de 18 años
-      await this.verificarApoderadoValido(createUsuarioDto.apoderadoId);
-    } else {
-      // MAYOR DE 18 AÑOS
-      // - PUEDE tener loginId (opcional)
-      // - NO requiere apoderadoId
       if (createUsuarioDto.apoderadoId) {
         throw new BadRequestException(
           'Los mayores de 18 años no pueden tener un apoderado asignado.',
@@ -161,19 +183,29 @@ export class UsuariosService {
         docRef.id,
       );
     }
-
-    return {
+    // 11. Construir respuesta con tipado correcto
+    const response: CreateUsuarioResponse = {
       success: true,
       message: 'Usuario creado exitosamente',
       id: docRef.id,
       edad: edad,
-      requiereApoderado: edad < 18,
+      requiereApoderado: requiereApoderado,
       tieneLogin: !!createUsuarioDto.loginId,
+      tieneApoderado: !!createUsuarioDto.apoderadoId,
+      advertencia: undefined, // ← Inicializar aquí
       usuario: {
         id: docRef.id,
         ...nuevoUsuario,
       },
     };
+
+    // Si es adolescente sin apoderado, agregar advertencia
+    if (advertenciaApoderado) {
+      response.advertencia =
+        'Este usuario es menor de edad y requiere un apoderado asignado.';
+    }
+
+    return response;
   }
 
   /**
@@ -254,7 +286,10 @@ export class UsuariosService {
   /**
    * Actualizar un usuario
    */
-  async update(id: string, updateUsuarioDto: UpdateUsuarioDto) {
+  async update(
+    id: string,
+    updateUsuarioDto: UpdateUsuarioDto,
+  ): Promise<UpdateUsuarioResponse> {
     // Verificar que el usuario existe
     const usuarioExistente = await this.findOne(id);
 
@@ -318,7 +353,7 @@ export class UsuariosService {
   /**
    * Eliminar un usuario (soft delete cambiando estado a inactivo)
    */
-  async remove(id: string) {
+  async remove(id: string): Promise<DeleteUsuarioResponse> {
     // Verificar que el usuario existe
     await this.findOne(id);
 
@@ -338,7 +373,7 @@ export class UsuariosService {
   /**
    * Eliminar permanentemente un usuario
    */
-  async removePermanently(id: string) {
+  async removePermanently(id: string): Promise<DeleteUsuarioResponse> {
     // Verificar que el usuario existe
     await this.findOne(id);
 
