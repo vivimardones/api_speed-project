@@ -28,10 +28,13 @@ import {
 } from './interfaces/usuario-response.interface';
 import { RutService } from '../shared/rut.service';
 import { EdadService } from '../shared/edad.service';
+import { Rol } from '../auth/enums';
 
 @Injectable()
 export class UsuariosService {
   private readonly collectionName = 'usuarios';
+  private readonly apoderadosDeportistasCollection = 'apoderados_deportistas';
+  private readonly usuarioRolesCollection = 'usuario_roles';
 
   constructor(
     private readonly rutService: RutService,
@@ -176,13 +179,17 @@ export class UsuariosService {
 
     const docRef = await addDoc(usuariosCollection, nuevoUsuario);
 
-    // 10. Si tiene apoderado, crear la relación en la tabla apoderados_deportistas
+    // 10. Si tiene apoderado, crear la relación Y asignar rol de apoderado ← MODIFICADO
     if (createUsuarioDto.apoderadoId) {
       await this.crearRelacionApoderado(
         createUsuarioDto.apoderadoId,
         docRef.id,
       );
+
+      // Asignar rol de apoderado al adulto si no lo tiene ← NUEVO
+      await this.asignarRolApoderado(createUsuarioDto.apoderadoId);
     }
+
     // 11. Construir respuesta con tipado correcto
     const response: CreateUsuarioResponse = {
       success: true,
@@ -192,7 +199,7 @@ export class UsuariosService {
       requiereApoderado: requiereApoderado,
       tieneLogin: !!createUsuarioDto.loginId,
       tieneApoderado: !!createUsuarioDto.apoderadoId,
-      advertencia: undefined, // ← Inicializar aquí
+      advertencia: undefined,
       usuario: {
         id: docRef.id,
         ...nuevoUsuario,
@@ -479,14 +486,41 @@ export class UsuariosService {
     apoderadoId: string,
     deportistaId: string,
   ) {
-    const relacionCollection = collection(db, 'apoderados_deportistas');
+    const relacionCollection = collection(
+      db,
+      this.apoderadosDeportistasCollection,
+    );
     await addDoc(relacionCollection, {
       apoderadoId,
       deportistaId,
-      fechaAsignacion: Timestamp.now(),
-      estado: 'activo',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+  }
+
+  /**
+   * Asignar rol de apoderado a un usuario si no lo tiene ← NUEVO MÉTODO
+   */
+  private async asignarRolApoderado(apoderadoId: string): Promise<void> {
+    // Verificar si ya tiene el rol de apoderado
+    const rolesRef = collection(db, this.usuarioRolesCollection);
+    const q = query(
+      rolesRef,
+      where('usuarioId', '==', apoderadoId),
+      where('rol', '==', Rol.APODERADO),
+      where('activo', '==', true),
+    );
+    const rolesSnapshot = await getDocs(q);
+
+    // Si no tiene el rol, asignarlo
+    if (rolesSnapshot.empty) {
+      await addDoc(collection(db, this.usuarioRolesCollection), {
+        usuarioId: apoderadoId,
+        rol: Rol.APODERADO,
+        activo: true,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
   }
 }

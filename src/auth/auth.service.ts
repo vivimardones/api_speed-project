@@ -81,35 +81,47 @@ export class AuthService {
   }
 
   /**
+   * Asignar rol de apoderado a un usuario si no lo tiene
+   */
+  private async asignarRolApoderado(apoderadoId: string): Promise<void> {
+    // Verificar si ya tiene el rol de apoderado
+    const rolesRef = collection(db, this.usuarioRolesCollection);
+    const q = query(
+      rolesRef,
+      where('usuarioId', '==', apoderadoId),
+      where('rol', '==', Rol.APODERADO),
+      where('activo', '==', true),
+    );
+    const rolesSnapshot = await getDocs(q);
+
+    // Si no tiene el rol, asignarlo
+    if (rolesSnapshot.empty) {
+      await addDoc(collection(db, this.usuarioRolesCollection), {
+        usuarioId: apoderadoId,
+        rol: Rol.APODERADO,
+        activo: true,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+  }
+
+  /**
    * Determinar roles automáticamente según el contexto del usuario
    */
-  private async determinarRolesIniciales(
-    usuarioId: string,
-    edad: number,
-  ): Promise<Rol[]> {
+  /**
+   * Determinar roles iniciales según edad
+   * (No verifica relaciones, solo edad)
+   */
+  private determinarRolesIniciales(edad: number): Rol[] {
     const roles: Rol[] = [];
 
-    // Si es deportista (tiene edad para serlo)
+    // Todos los usuarios que se registran son deportistas por defecto
     if (edad >= 10) {
       roles.push(Rol.DEPORTISTA);
     }
 
-    // Si es apoderado (es adulto Y tiene deportistas a cargo)
-    if (edad >= 18) {
-      // Verificar si tiene deportistas a cargo
-      const apoderadosRef = collection(
-        db,
-        this.apoderadosDeportistasCollection,
-      );
-      const q = query(apoderadosRef, where('apoderadoId', '==', usuarioId));
-      const apoderadosSnapshot = await getDocs(q);
-
-      if (!apoderadosSnapshot.empty) {
-        roles.push(Rol.APODERADO);
-      }
-    }
-
-    // Si no tiene roles, al menos es deportista (default)
+    // Si no tiene edad para ser deportista, igual asignamos el rol
     if (roles.length === 0) {
       roles.push(Rol.DEPORTISTA);
     }
@@ -247,8 +259,8 @@ export class AuthService {
         updatedAt: Timestamp.now(),
       });
 
-      // 14. Determinar y asignar roles ← AGREGAR
-      const roles = await this.determinarRolesIniciales(usuarioDocRef.id, edad);
+      // 14. Determinar y asignar roles
+      const roles = this.determinarRolesIniciales(edad);
       await this.asignarRoles(usuarioDocRef.id, roles);
 
       return {
@@ -442,17 +454,22 @@ export class AuthService {
         });
       }
 
-      // 14. Si tiene apoderado, crear relación
+      // 14. Si tiene apoderado, crear la relación Y asignar rol de apoderado
       if (registerAdolescenteDto.apoderadoId) {
+        // Crear relación apoderado-deportista
         await addDoc(collection(db, this.apoderadosDeportistasCollection), {
           apoderadoId: registerAdolescenteDto.apoderadoId,
           deportistaId: usuarioDocRef.id,
           createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         });
+
+        // Asignar rol de apoderado al adulto si no lo tiene
+        await this.asignarRolApoderado(registerAdolescenteDto.apoderadoId);
       }
 
-      // 15. Determinar y asignar roles ← AGREGAR
-      const roles = await this.determinarRolesIniciales(usuarioDocRef.id, edad);
+      // 15. Determinar y asignar roles al adolescente
+      const roles = this.determinarRolesIniciales(edad);
       await this.asignarRoles(usuarioDocRef.id, roles);
 
       // 16. Construir respuesta CON TIPADO
