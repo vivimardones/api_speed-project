@@ -25,7 +25,7 @@ import {
   Timestamp,
   getDoc,
 } from 'firebase/firestore';
-import { db, auth } from '../firebase.config';
+import { db, clientAuth } from '../firebase.config';
 import { RegisterAdultoDto, RegisterAdolescenteDto, LoginDto } from './dto';
 import {
   RegisterAdultoResponse,
@@ -209,7 +209,7 @@ export class AuthService {
     try {
       // 9. Crear usuario en Firebase Auth
       const firebaseUser = await createUserWithEmailAndPassword(
-        auth,
+        clientAuth,
         registerAdultoDto.correo,
         registerAdultoDto.password,
       );
@@ -397,7 +397,7 @@ export class AuthService {
       // 11. Si tiene correo/password, crear en Firebase Auth y logins
       if (tieneCredenciales) {
         const firebaseUser = await createUserWithEmailAndPassword(
-          auth,
+          clientAuth,
           registerAdolescenteDto.correo!,
           registerAdolescenteDto.password!,
         );
@@ -522,7 +522,7 @@ export class AuthService {
     try {
       // 1. Autenticar con Firebase
       const userCredential = await signInWithEmailAndPassword(
-        auth,
+        clientAuth,
         loginDto.correo,
         loginDto.password,
       );
