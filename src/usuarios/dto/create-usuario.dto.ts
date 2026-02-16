@@ -37,7 +37,7 @@ export class CreateUsuarioDto {
     message: 'El primer nombre debe tener al menos 2 caracteres',
   })
   @MaxLength(50, { message: 'El primer nombre no puede superar 50 caracteres' })
-  primerNombre: string;
+  primerNombre!: string;
 
   @IsOptional()
   @IsString()
@@ -65,7 +65,7 @@ export class CreateUsuarioDto {
   @MaxLength(50, {
     message: 'El apellido paterno no puede superar 50 caracteres',
   })
-  apellidoPaterno: string;
+  apellidoPaterno!: string;
 
   @IsNotEmpty({ message: 'El apellido materno es obligatorio' })
   @IsString()
@@ -75,7 +75,7 @@ export class CreateUsuarioDto {
   @MaxLength(50, {
     message: 'El apellido materno no puede superar 50 caracteres',
   })
-  apellidoMaterno: string;
+  apellidoMaterno!: string;
 
   // ← AGREGAR FECHA DE NACIMIENTO AQUÍ
   @IsNotEmpty({ message: 'La fecha de nacimiento es obligatoria' })
@@ -83,12 +83,12 @@ export class CreateUsuarioDto {
     {},
     { message: 'La fecha de nacimiento debe tener formato YYYY-MM-DD' },
   )
-  fechaNacimiento: string;
+  fechaNacimiento!: string;
 
   // Sexo
   @IsNotEmpty({ message: 'El sexo es obligatorio' })
   @IsEnum(SexoEnum, { message: 'El sexo debe ser femenino o masculino' })
-  sexo: SexoEnum;
+  sexo!: SexoEnum;
 
   // Identificación
   @IsNotEmpty({ message: 'El tipo de identificador es obligatorio' })
@@ -96,19 +96,18 @@ export class CreateUsuarioDto {
     message:
       'El tipo de identificador debe ser RUT, PASAPORTE, RUT_PROVISORIO o IDENTIFICADOR_EXTRANJERO',
   })
-  tipoIdentificador: TipoIdentificador;
+  tipoIdentificador!: TipoIdentificador;
 
   @IsNotEmpty({ message: 'El número de identificador es obligatorio' })
   @IsString()
-  numeroIdentificador: string;
-
+  numeroIdentificador!: string;
   // Contacto
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
   @IsString()
   @Matches(/^\+56[0-9]{9}$/, {
     message: 'El teléfono debe tener formato +56912345678',
   })
-  telefono: string;
+  telefono!: string;
 
   @IsOptional()
   @IsString()

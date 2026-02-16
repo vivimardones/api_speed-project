@@ -13,6 +13,7 @@ import {
   sendEmailVerification,
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
+import { Rol } from './enums';
 import {
   collection,
   addDoc,
@@ -40,11 +41,81 @@ export class AuthService {
   private readonly loginsCollection = 'logins';
   private readonly usuariosCollection = 'usuarios';
   private readonly apoderadosDeportistasCollection = 'apoderados_deportistas';
+  private readonly usuarioRolesCollection = 'usuario_roles';
 
   constructor(
     private readonly edadService: EdadService,
     private readonly rutService: RutService,
   ) {}
+
+  /**
+   * Asignar roles a un usuario
+   */
+  private async asignarRoles(usuarioId: string, roles: Rol[]): Promise<void> {
+    const rolesPromises = roles.map((rol) =>
+      addDoc(collection(db, this.usuarioRolesCollection), {
+        usuarioId: usuarioId,
+        rol: rol,
+        activo: true,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }),
+    );
+
+    await Promise.all(rolesPromises);
+  }
+
+  /**
+   * Obtener roles de un usuario
+   */
+  private async obtenerRoles(usuarioId: string): Promise<Rol[]> {
+    const rolesRef = collection(db, this.usuarioRolesCollection);
+    const q = query(
+      rolesRef,
+      where('usuarioId', '==', usuarioId),
+      where('activo', '==', true),
+    );
+    const rolesSnapshot = await getDocs(q);
+
+    return rolesSnapshot.docs.map((doc) => doc.data()['rol'] as Rol);
+  }
+
+  /**
+   * Determinar roles automáticamente según el contexto del usuario
+   */
+  private async determinarRolesIniciales(
+    usuarioId: string,
+    edad: number,
+  ): Promise<Rol[]> {
+    const roles: Rol[] = [];
+
+    // Si es deportista (tiene edad para serlo)
+    if (edad >= 10) {
+      roles.push(Rol.DEPORTISTA);
+    }
+
+    // Si es apoderado (es adulto Y tiene deportistas a cargo)
+    if (edad >= 18) {
+      // Verificar si tiene deportistas a cargo
+      const apoderadosRef = collection(
+        db,
+        this.apoderadosDeportistasCollection,
+      );
+      const q = query(apoderadosRef, where('apoderadoId', '==', usuarioId));
+      const apoderadosSnapshot = await getDocs(q);
+
+      if (!apoderadosSnapshot.empty) {
+        roles.push(Rol.APODERADO);
+      }
+    }
+
+    // Si no tiene roles, al menos es deportista (default)
+    if (roles.length === 0) {
+      roles.push(Rol.DEPORTISTA);
+    }
+
+    return roles;
+  }
 
   /**
    * Obtener mensaje de error de forma segura
@@ -170,11 +241,15 @@ export class AuthService {
         },
       );
 
-      // 13. Actualizar login con usuarioId
+      // 13. Si se creó login, actualizar con usuarioId
       await updateDoc(doc(db, this.loginsCollection, loginDocRef.id), {
         usuarioId: usuarioDocRef.id,
         updatedAt: Timestamp.now(),
       });
+
+      // 14. Determinar y asignar roles ← AGREGAR
+      const roles = await this.determinarRolesIniciales(usuarioDocRef.id, edad);
+      await this.asignarRoles(usuarioDocRef.id, roles);
 
       return {
         success: true,
@@ -185,6 +260,7 @@ export class AuthService {
         firebaseUid: firebaseUser.user.uid,
         edad: edad,
         verificacionEnviada: true,
+        roles: roles,
       };
     } catch (error: unknown) {
       // Manejar errores de Firebase Auth
@@ -375,7 +451,11 @@ export class AuthService {
         });
       }
 
-      // 15. Construir respuesta
+      // 15. Determinar y asignar roles ← AGREGAR
+      const roles = await this.determinarRolesIniciales(usuarioDocRef.id, edad);
+      await this.asignarRoles(usuarioDocRef.id, roles);
+
+      // 16. Construir respuesta CON TIPADO
       const response: RegisterAdolescenteResponse = {
         success: true,
         message: 'Adolescente registrado exitosamente.',
@@ -383,6 +463,7 @@ export class AuthService {
         edad: edad,
         tieneLogin: !!loginId,
         tieneApoderado: !!registerAdolescenteDto.apoderadoId,
+        roles: roles,
       };
 
       if (loginId) {
@@ -498,7 +579,10 @@ export class AuthService {
         updatedAt: Timestamp;
       };
 
-      // 6. Obtener token de Firebase
+      // 6. Obtener roles del usuario
+      const roles = await this.obtenerRoles(loginData.usuarioId);
+
+      // 7. Obtener token de Firebase
       const token = await userCredential.user.getIdToken();
 
       return {
@@ -512,6 +596,7 @@ export class AuthService {
           primerNombre: usuarioData.primerNombre,
           apellidoPaterno: usuarioData.apellidoPaterno,
           verificado: loginData.verificado,
+          roles: roles, // ← AGREGAR
         },
       };
     } catch (error: unknown) {

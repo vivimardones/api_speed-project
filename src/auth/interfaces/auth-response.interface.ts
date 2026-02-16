@@ -1,5 +1,7 @@
 // Ruta: src/auth/interfaces/auth-response.interface.ts
 
+import { Rol } from '../enums/rol.enum';
+
 export interface RegisterAdultoResponse {
   success: boolean;
   message: string;
@@ -8,6 +10,7 @@ export interface RegisterAdultoResponse {
   firebaseUid: string;
   edad: number;
   verificacionEnviada: boolean;
+  roles: Rol[];
 }
 
 export interface RegisterAdolescenteResponse {
@@ -21,6 +24,7 @@ export interface RegisterAdolescenteResponse {
   firebaseUid?: string;
   verificacionEnviada?: boolean;
   advertencia?: string;
+  roles?: Rol[];
 }
 
 export interface LoginResponse {
@@ -34,5 +38,6 @@ export interface LoginResponse {
     primerNombre: string;
     apellidoPaterno: string;
     verificado: boolean;
+    roles: Rol[];
   };
 }
