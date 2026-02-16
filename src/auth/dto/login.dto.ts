@@ -1,12 +1,13 @@
-import { IsString, IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+// Ruta: src/auth/dto/login.dto.ts
+
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
   @IsNotEmpty({ message: 'El correo es obligatorio' })
   @IsEmail({}, { message: 'El correo debe ser válido' })
-  correo: string; // ← Cambió de "email" a "correo"
+  correo: string;
 
   @IsNotEmpty({ message: 'La contraseña es obligatoria' })
   @IsString()
-  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
   password: string;
 }

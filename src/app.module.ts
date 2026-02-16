@@ -22,6 +22,7 @@ import { SharedModule } from './shared/shared.module';
     ConfigModule.forRoot({ isGlobal: true }),
     SharedModule,
     UsuariosModule,
+    AuthModule,
     CampeonatosModule,
     InscripcionesModule,
     AsistenciaModule,
