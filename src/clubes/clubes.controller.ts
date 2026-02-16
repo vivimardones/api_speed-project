@@ -4,10 +4,19 @@ import {
   Post,
   Put,
   Delete,
+  Patch,
   Param,
   Body,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ClubesService } from './clubes.service';
+import { ICreateClubDto } from './interfaces/club.interface';
+import { IMulterFile } from './interfaces/multer.interface';
 
 @Controller('clubes')
 export class ClubesController {
@@ -24,12 +33,12 @@ export class ClubesController {
   }
 
   @Post()
-  create(@Body() clubData: any) {
+  create(@Body() clubData: ICreateClubDto) {
     return this.clubesService.create(clubData);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() clubData: any) {
+  update(@Param('id') id: string, @Body() clubData: Partial<ICreateClubDto>) {
     return this.clubesService.update(id, clubData);
   }
 
@@ -38,7 +47,32 @@ export class ClubesController {
     return this.clubesService.remove(id);
   }
 
-  // Relaciones según el diagrama MER
+  @Post(':id/upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(
+    @Param('id') clubId: string,
+    @Body('type') type: 'escudo' | 'insignia',
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }),
+        ],
+      }),
+    )
+    file: IMulterFile,
+  ) {
+    return this.clubesService.uploadImage(file, clubId, type);
+  }
+
+  @Delete(':id/delete-image/:type')
+  deleteImage(
+    @Param('id') clubId: string,
+    @Param('type') type: 'escudo' | 'insignia',
+  ) {
+    return this.clubesService.deleteImage(clubId, type);
+  }
+
   @Get(':id/usuarios')
   getUsuarios(@Param('id') clubId: string) {
     return this.clubesService.getUsuarios(clubId);
@@ -70,5 +104,25 @@ export class ClubesController {
   @Post(':id/nominas/:nominaId')
   addNomina(@Param('id') clubId: string, @Param('nominaId') nominaId: string) {
     return this.clubesService.addNomina(clubId, nominaId);
+  }
+
+  @Get('search/nombre/:nombre')
+  findByNombre(@Param('nombre') nombre: string) {
+    return this.clubesService.findByNombre(nombre);
+  }
+
+  @Get('search/rut/:rut')
+  findByRut(@Param('rut') rut: string) {
+    return this.clubesService.findByRut(rut);
+  }
+
+  @Get('vigentes/all')
+  findVigentes() {
+    return this.clubesService.findVigentes();
+  }
+
+  @Patch(':id/vigencia')
+  updateVigencia(@Param('id') id: string, @Body('vigencia') vigencia: boolean) {
+    return this.clubesService.updateVigencia(id, vigencia);
   }
 }
