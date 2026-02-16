@@ -1,200 +1,457 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { Injectable } from '@nestjs/common';
-import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { db } from '../firebase.config';
+// Ruta: src/usuarios/usuarios.service.ts
+
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import {
   collection,
+  addDoc,
   getDocs,
   getDoc,
-  addDoc,
   doc,
-  updateDoc,
-  deleteDoc,
   query,
   where,
+  updateDoc,
+  deleteDoc,
+  Timestamp,
 } from 'firebase/firestore';
-import * as bcrypt from 'bcrypt';
+import { db } from '../firebase.config';
+import { CreateUsuarioDto, UpdateUsuarioDto, TipoIdentificador } from './dto';
+import { IUsuario } from './interfaces/usuario.interface';
+import { RutService } from '../shared/rut.service';
+import { EdadService } from '../shared/edad.service';
 
 @Injectable()
 export class UsuariosService {
-  private usuariosCollection = collection(db, 'usuarios');
-  async findAll() {
-    const snapshot = await getDocs(this.usuariosCollection);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  }
-  async findOne(email: string) {
-    const q = query(this.usuariosCollection, where('correo', '==', email));
-    const snapshot = await getDocs(q);
-    const doc = snapshot.docs[0];
-    return doc ? { id: doc.id, ...doc.data() } : null;
-  }
+  private readonly collectionName = 'usuarios';
 
-  // Buscar usuarios por rol
-  async findByRole(role: string) {
-    const q = query(this.usuariosCollection, where('idRol', '==', role));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  }
-  async create(usuario: CreateUsuarioDto) {
-    const nuevoUsuario = await addDoc(this.usuariosCollection, usuario);
-    return { id: nuevoUsuario.id, ...usuario };
-  }
-  async update(id: string, usuario: Partial<CreateUsuarioDto>) {
-    await updateDoc(doc(db, 'usuarios', id), usuario);
-    return { id, ...usuario };
-  }
-  async remove(id: string) {
-    await deleteDoc(doc(db, 'usuarios', id));
-    return { message: `Usuario con ID ${id} eliminado` };
-  }
+  constructor(
+    private readonly rutService: RutService,
+    private readonly edadService: EdadService,
+  ) {}
 
-  // Relaciones
-  async getPerfilUsuario(usuarioId: string) {
-    const usuarioDoc = await getDoc(doc(db, 'usuarios', usuarioId));
-    if (usuarioDoc.exists()) {
-      const usuarioData = usuarioDoc.data() as any;
-      return usuarioData.perfilId ? { id: usuarioData.perfilId } : null;
+  /**
+   * Crear un nuevo usuario
+   */
+  async create(createUsuarioDto: CreateUsuarioDto) {
+    // 1. Validar fecha de nacimiento
+    if (!this.edadService.esFechaValida(createUsuarioDto.fechaNacimiento)) {
+      throw new BadRequestException('La fecha de nacimiento no es válida');
     }
-    return null;
-  }
 
-  async createPerfilUsuario(usuarioId: string, perfilData: any) {
-    const perfilCollection = collection(db, 'perfiles');
-    const nuevoPerfil = await addDoc(perfilCollection, {
-      ...perfilData,
-      usuarioId,
-      createdAt: new Date(),
-    });
-    await updateDoc(doc(db, 'usuarios', usuarioId), {
-      perfilId: nuevoPerfil.id,
-    });
-    return { id: nuevoPerfil.id, ...perfilData };
-  }
+    // 2. Calcular edad
+    const edad = this.edadService.calcularEdad(
+      createUsuarioDto.fechaNacimiento,
+    );
 
-  async getVehiculosUsuario(usuarioId: string) {
-    const vehiculosRef = collection(db, 'vehiculos');
-    const snapshot = await getDocs(vehiculosRef);
-    const vehiculos = snapshot.docs
-      .filter((doc) => (doc.data() as any).usuarioId === usuarioId)
-      .map((doc) => ({ id: doc.id, ...doc.data() }));
-    return vehiculos;
-  }
+    // 3. Validar reglas de negocio según edad
+    if (edad < 10) {
+      // MENOR DE 10 AÑOS
+      // - NO puede tener loginId
+      // - DEBE tener apoderadoId
+      if (createUsuarioDto.loginId) {
+        throw new BadRequestException(
+          'Los menores de 10 años no pueden tener un login asociado. Debe ser registrado por su apoderado.',
+        );
+      }
 
-  async addVehiculo(usuarioId: string, vehiculoId: string) {
-    const vehiculoRef = doc(db, 'vehiculos', vehiculoId);
-    await updateDoc(vehiculoRef, { usuarioId });
+      if (!createUsuarioDto.apoderadoId) {
+        throw new BadRequestException(
+          'Los menores de 10 años deben tener un apoderado asignado.',
+        );
+      }
+
+      // Verificar que el apoderado existe y es mayor de 18 años
+      await this.verificarApoderadoValido(createUsuarioDto.apoderadoId);
+    } else if (edad >= 10 && edad < 18) {
+      // ENTRE 10 Y 17 AÑOS
+      // - PUEDE tener loginId (opcional)
+      // - DEBE tener apoderadoId
+      if (!createUsuarioDto.apoderadoId) {
+        throw new BadRequestException(
+          'Los menores de 18 años deben tener un apoderado asignado.',
+        );
+      }
+
+      // Verificar que el apoderado existe y es mayor de 18 años
+      await this.verificarApoderadoValido(createUsuarioDto.apoderadoId);
+    } else {
+      // MAYOR DE 18 AÑOS
+      // - PUEDE tener loginId (opcional)
+      // - NO requiere apoderadoId
+      if (createUsuarioDto.apoderadoId) {
+        throw new BadRequestException(
+          'Los mayores de 18 años no pueden tener un apoderado asignado.',
+        );
+      }
+    }
+
+    // 4. Validar RUT si el tipo de identificador es RUT
+    if (
+      createUsuarioDto.tipoIdentificador === TipoIdentificador.RUT ||
+      createUsuarioDto.tipoIdentificador === TipoIdentificador.RUT_PROVISORIO
+    ) {
+      const rutCompleto = `${createUsuarioDto.numeroIdentificador}`;
+
+      if (!this.rutService.validarRut(rutCompleto)) {
+        throw new BadRequestException(
+          'El RUT ingresado no es válido. Verifica el número y el dígito verificador.',
+        );
+      }
+
+      createUsuarioDto.numeroIdentificador =
+        this.rutService.limpiarRut(rutCompleto);
+    }
+
+    // 5. Validar formato de identificador según tipo
+    if (
+      !this.rutService.esIdentificadorValido(
+        createUsuarioDto.tipoIdentificador,
+        createUsuarioDto.numeroIdentificador,
+      )
+    ) {
+      throw new BadRequestException(
+        `El formato del identificador no es válido para el tipo ${createUsuarioDto.tipoIdentificador}`,
+      );
+    }
+
+    // 6. Verificar que el identificador sea único
+    await this.verificarIdentificadorUnico(
+      createUsuarioDto.tipoIdentificador,
+      createUsuarioDto.numeroIdentificador,
+    );
+
+    // 7. Verificar que el teléfono sea único
+    await this.verificarTelefonoUnico(createUsuarioDto.telefono);
+
+    // 8. Si tiene loginId, verificar que el login existe y no esté ya asociado a otro usuario
+    if (createUsuarioDto.loginId) {
+      await this.verificarLoginDisponible(createUsuarioDto.loginId);
+    }
+
+    // 9. Crear el documento del usuario
+    const usuariosCollection = collection(db, this.collectionName);
+    const nuevoUsuario = {
+      primerNombre: createUsuarioDto.primerNombre,
+      segundoNombre: createUsuarioDto.segundoNombre || null,
+      tercerNombre: createUsuarioDto.tercerNombre || null,
+      apellidoPaterno: createUsuarioDto.apellidoPaterno,
+      apellidoMaterno: createUsuarioDto.apellidoMaterno,
+      fechaNacimiento: createUsuarioDto.fechaNacimiento,
+      sexo: createUsuarioDto.sexo,
+      tipoIdentificador: createUsuarioDto.tipoIdentificador,
+      numeroIdentificador: createUsuarioDto.numeroIdentificador,
+      telefono: createUsuarioDto.telefono,
+      telefonoEmergencia: createUsuarioDto.telefonoEmergencia || null,
+      loginId: createUsuarioDto.loginId || null,
+      estado: 'activo',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    const docRef = await addDoc(usuariosCollection, nuevoUsuario);
+
+    // 10. Si tiene apoderado, crear la relación en la tabla apoderados_deportistas
+    if (createUsuarioDto.apoderadoId) {
+      await this.crearRelacionApoderado(
+        createUsuarioDto.apoderadoId,
+        docRef.id,
+      );
+    }
+
     return {
-      message: `Vehículo ${vehiculoId} agregado al usuario ${usuarioId}`,
+      success: true,
+      message: 'Usuario creado exitosamente',
+      id: docRef.id,
+      edad: edad,
+      requiereApoderado: edad < 18,
+      tieneLogin: !!createUsuarioDto.loginId,
+      usuario: {
+        id: docRef.id,
+        ...nuevoUsuario,
+      },
     };
   }
 
-  async getSaludUsuario(usuarioId: string) {
-    const saludRef = collection(db, 'salud');
-    const snapshot = await getDocs(saludRef);
-    const saludData = snapshot.docs
-      .filter((doc) => (doc.data() as any).usuarioId === usuarioId)
-      .map((doc) => ({ id: doc.id, ...doc.data() }));
-    return saludData.length > 0 ? saludData[0] : null;
+  /**
+   * Obtener todos los usuarios
+   */
+  async findAll(): Promise<IUsuario[]> {
+    const usuariosCollection = collection(db, this.collectionName);
+    const snapshot = await getDocs(usuariosCollection);
+
+    const usuarios = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as IUsuario[];
+
+    return usuarios;
   }
 
-  async createSaludUsuario(usuarioId: string, saludData: any) {
-    const saludCollection = collection(db, 'salud');
-    const nuevaSalud = await addDoc(saludCollection, {
-      ...saludData,
-      usuarioId,
-      createdAt: new Date(),
+  /**
+   * Obtener un usuario por ID
+   */
+  async findOne(id: string) {
+    const usuarioDoc = doc(db, this.collectionName, id);
+    const snapshot = await getDoc(usuarioDoc);
+
+    if (!snapshot.exists()) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    return {
+      id: snapshot.id,
+      ...snapshot.data(),
+    } as IUsuario;
+  }
+
+  /**
+   * Buscar usuario por loginId
+   */
+  async findByLoginId(loginId: string): Promise<IUsuario | null> {
+    const usuariosCollection = collection(db, this.collectionName);
+    const q = query(usuariosCollection, where('loginId', '==', loginId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const docData = snapshot.docs[0];
+    return {
+      id: docData.id,
+      ...docData.data(),
+    } as IUsuario;
+  }
+
+  /**
+   * Buscar usuario por número de identificador
+   */
+  async findByIdentificador(
+    numeroIdentificador: string,
+  ): Promise<IUsuario | null> {
+    const usuariosCollection = collection(db, this.collectionName);
+    const q = query(
+      usuariosCollection,
+      where('numeroIdentificador', '==', numeroIdentificador),
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const docData = snapshot.docs[0];
+    return {
+      id: docData.id,
+      ...docData.data(),
+    } as IUsuario;
+  }
+
+  /**
+   * Actualizar un usuario
+   */
+  async update(id: string, updateUsuarioDto: UpdateUsuarioDto) {
+    // Verificar que el usuario existe
+    const usuarioExistente = await this.findOne(id);
+
+    // Si se actualiza el identificador, validar
+    if (updateUsuarioDto.numeroIdentificador) {
+      // Si se actualiza el número pero no el tipo, usar el tipo existente
+      const tipoIdentificador =
+        updateUsuarioDto.tipoIdentificador ||
+        (usuarioExistente.tipoIdentificador as TipoIdentificador);
+      if (
+        tipoIdentificador === TipoIdentificador.RUT ||
+        tipoIdentificador === TipoIdentificador.RUT_PROVISORIO
+      ) {
+        const rutCompleto = updateUsuarioDto.numeroIdentificador;
+
+        if (!this.rutService.validarRut(rutCompleto)) {
+          throw new BadRequestException('El RUT ingresado no es válido');
+        }
+
+        updateUsuarioDto.numeroIdentificador =
+          this.rutService.limpiarRut(rutCompleto);
+      }
+
+      // Verificar unicidad del nuevo identificador (excluyendo el usuario actual)
+      await this.verificarIdentificadorUnico(
+        tipoIdentificador,
+        updateUsuarioDto.numeroIdentificador,
+        id,
+      );
+    }
+    // Si solo se actualiza el tipo de identificador (sin cambiar el número)
+    if (
+      updateUsuarioDto.tipoIdentificador &&
+      !updateUsuarioDto.numeroIdentificador
+    ) {
+      throw new BadRequestException(
+        'Si cambias el tipo de identificador, debes proporcionar también el número de identificador.',
+      );
+    }
+    // Si se actualiza el teléfono, verificar unicidad
+    if (updateUsuarioDto.telefono) {
+      await this.verificarTelefonoUnico(updateUsuarioDto.telefono, id);
+    }
+
+    // Actualizar el documento
+    const usuarioDoc = doc(db, this.collectionName, id);
+    const dataToUpdate: any = {
+      ...updateUsuarioDto,
+      updatedAt: Timestamp.now(),
+    };
+
+    await updateDoc(usuarioDoc, dataToUpdate);
+
+    return {
+      success: true,
+      message: 'Usuario actualizado exitosamente',
+      id,
+    };
+  }
+
+  /**
+   * Eliminar un usuario (soft delete cambiando estado a inactivo)
+   */
+  async remove(id: string) {
+    // Verificar que el usuario existe
+    await this.findOne(id);
+
+    const usuarioDoc = doc(db, this.collectionName, id);
+    await updateDoc(usuarioDoc, {
+      estado: 'inactivo',
+      updatedAt: Timestamp.now(),
     });
-    return { id: nuevaSalud.id, ...saludData };
+
+    return {
+      success: true,
+      message: 'Usuario marcado como inactivo',
+      id,
+    };
   }
 
-  async getClubsUsuario(usuarioId: string) {
-    const clubsRef = collection(db, 'clubes');
-    const snapshot = await getDocs(clubsRef);
-    const clubs = snapshot.docs
-      .filter((doc) => {
-        const usuariosClub = (doc.data() as any).usuarios || [];
-        return (usuariosClub as string[]).includes(usuarioId);
-      })
-      .map((doc) => ({ id: doc.id, ...doc.data() }));
-    return clubs;
+  /**
+   * Eliminar permanentemente un usuario
+   */
+  async removePermanently(id: string) {
+    // Verificar que el usuario existe
+    await this.findOne(id);
+
+    const usuarioDoc = doc(db, this.collectionName, id);
+    await deleteDoc(usuarioDoc);
+
+    return {
+      success: true,
+      message: 'Usuario eliminado permanentemente',
+      id,
+    };
   }
 
-  async addClub(usuarioId: string, clubId: string) {
-    const clubRef = doc(db, 'clubes', clubId);
-    const clubDoc = await getDoc(clubRef);
-    if (clubDoc.exists()) {
-      const usuarios = ((clubDoc.data() as any).usuarios || []) as string[];
-      if (!usuarios.includes(usuarioId)) {
-        usuarios.push(usuarioId);
-        await updateDoc(clubRef, { usuarios });
+  /**
+   * Verificar que el identificador sea único
+   */
+  private async verificarIdentificadorUnico(
+    tipoIdentificador: string,
+    numeroIdentificador: string,
+    excludeId?: string,
+  ) {
+    const usuariosCollection = collection(db, this.collectionName);
+    const q = query(
+      usuariosCollection,
+      where('tipoIdentificador', '==', tipoIdentificador),
+      where('numeroIdentificador', '==', numeroIdentificador),
+    );
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const existingDoc = snapshot.docs[0];
+      if (!excludeId || existingDoc.id !== excludeId) {
+        throw new ConflictException(
+          `Ya existe un usuario con el ${tipoIdentificador} ${numeroIdentificador}`,
+        );
       }
     }
-    return { message: `Usuario ${usuarioId} agregado al club ${clubId}` };
   }
 
-  async getAportadosUsuario(usuarioId: string) {
-    const aportadosRef = collection(db, 'aportados');
-    const snapshot = await getDocs(aportadosRef);
-    const aportados = snapshot.docs
-      .filter((doc) => (doc.data() as any).usuarioId === usuarioId)
-      .map((doc) => ({ id: doc.id, ...doc.data() }));
-    return aportados;
-  }
+  /**
+   * Verificar que el teléfono sea único
+   */
+  private async verificarTelefonoUnico(telefono: string, excludeId?: string) {
+    const usuariosCollection = collection(db, this.collectionName);
+    const q = query(usuariosCollection, where('telefono', '==', telefono));
+    const snapshot = await getDocs(q);
 
-  async createAportado(usuarioId: string, aportadoData: any) {
-    const aportadosCollection = collection(db, 'aportados');
-    const nuevoAportado = await addDoc(aportadosCollection, {
-      ...aportadoData,
-      usuarioId,
-      createdAt: new Date(),
-    });
-    return { id: nuevoAportado.id, ...aportadoData };
-  }
-
-  // Crear admin con profile y contraseña
-  async createAdminWithProfile(adminData: {
-    password: string;
-    correo: string;
-    fechaNacimiento: string;
-    idRol: string;
-  }) {
-    console.log('Iniciando creación de admin:', adminData);
-
-    try {
-      // Encriptar contraseña
-      console.log('[Paso 1] Encriptando contraseña...');
-      if (typeof adminData.password !== 'string') {
-        throw new Error('La contraseña debe ser una cadena de texto');
+    if (!snapshot.empty) {
+      const existingDoc = snapshot.docs[0];
+      if (!excludeId || existingDoc.id !== excludeId) {
+        throw new ConflictException(
+          `Ya existe un usuario con el teléfono ${telefono}`,
+        );
       }
-      const hashedPassword = await bcrypt.hash(adminData.password, 10);
-      console.log('[Paso 1] ✓ Contraseña encriptada');
-
-      // Crear documento en usuarios con rol admin
-      console.log('[Paso 2] Creando admin en colección usuarios...');
-      const usuarioData = {
-        correo: adminData.correo,
-        fechaNacimiento: adminData.fechaNacimiento,
-        password: hashedPassword,
-        idRol: adminData.idRol,
-        fechaRegistro: new Date().toISOString(),
-        activo: true,
-      };
-
-      const usuarioDoc = await addDoc(this.usuariosCollection, usuarioData);
-      console.log('Admin creado con ID:', usuarioDoc.id, 'y rol: admin');
-
-      console.log('[createAdminWithProfile] ✓ Admin creado exitosamente');
-      return {
-        id: usuarioDoc.id,
-        ...usuarioData,
-        message: 'Admin creado exitosamente con rol admin',
-      };
-    } catch (error) {
-      console.error('[createAdminWithProfile] ❌ Error:', error);
-      throw error;
     }
+  }
+
+  /**
+   * Verificar que el apoderado existe y es mayor de 18 años
+   */
+  private async verificarApoderadoValido(apoderadoId: string) {
+    const apoderado = await this.findOne(apoderadoId);
+    // Validar que fechaNacimiento existe y es string
+    if (
+      !apoderado.fechaNacimiento ||
+      typeof apoderado.fechaNacimiento !== 'string'
+    ) {
+      throw new BadRequestException(
+        'El apoderado debe tener una fecha de nacimiento válida registrada.',
+      );
+    }
+
+    const edadApoderado = this.edadService.calcularEdad(
+      apoderado.fechaNacimiento,
+    );
+
+    if (edadApoderado < 18) {
+      throw new BadRequestException('El apoderado debe ser mayor de 18 años.');
+    }
+
+    if (apoderado.estado === 'inactivo') {
+      throw new BadRequestException('El apoderado seleccionado está inactivo.');
+    }
+  }
+
+  /**
+   * Verificar que el loginId no esté ya asociado a otro usuario
+   */
+  private async verificarLoginDisponible(loginId: string) {
+    const usuarioExistente = await this.findByLoginId(loginId);
+
+    if (usuarioExistente) {
+      throw new ConflictException(
+        `El login con ID ${loginId} ya está asociado a otro usuario.`,
+      );
+    }
+  }
+
+  /**
+   * Crear relación apoderado-deportista
+   */
+  private async crearRelacionApoderado(
+    apoderadoId: string,
+    deportistaId: string,
+  ) {
+    const relacionCollection = collection(db, 'apoderados_deportistas');
+    await addDoc(relacionCollection, {
+      apoderadoId,
+      deportistaId,
+      fechaAsignacion: Timestamp.now(),
+      estado: 'activo',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
   }
 }

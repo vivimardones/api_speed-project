@@ -8,6 +8,7 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsDateString,
 } from 'class-validator';
 
 export enum TipoIdentificador {
@@ -76,6 +77,14 @@ export class CreateUsuarioDto {
   })
   apellidoMaterno: string;
 
+  // ← AGREGAR FECHA DE NACIMIENTO AQUÍ
+  @IsNotEmpty({ message: 'La fecha de nacimiento es obligatoria' })
+  @IsDateString(
+    {},
+    { message: 'La fecha de nacimiento debe tener formato YYYY-MM-DD' },
+  )
+  fechaNacimiento: string;
+
   // Sexo
   @IsNotEmpty({ message: 'El sexo es obligatorio' })
   @IsEnum(SexoEnum, { message: 'El sexo debe ser femenino o masculino' })
@@ -91,7 +100,7 @@ export class CreateUsuarioDto {
 
   @IsNotEmpty({ message: 'El número de identificador es obligatorio' })
   @IsString()
-  numeroIdentificador: string; // Se validará con RutService en el servicio
+  numeroIdentificador: string;
 
   // Contacto
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
@@ -108,6 +117,7 @@ export class CreateUsuarioDto {
   })
   telefonoEmergencia?: string;
 
-  // Estado se asigna automáticamente como 'activo'
-  // createdAt y updatedAt se asignan automáticamente en el servicio
+  @IsOptional()
+  @IsString()
+  apoderadoId?: string; // ID del usuario que actúa como apoderado
 }

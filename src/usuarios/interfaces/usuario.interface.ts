@@ -16,20 +16,22 @@ export interface IUsuario {
 
   // Nombres
   primerNombre: string;
-  segundoNombre?: string; // opcional
-  tercerNombre?: string; // opcional
+  segundoNombre?: string;
+  tercerNombre?: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
 
+  // Datos personales
+  fechaNacimiento: string; // ← SIN el signo ? (ahora es obligatorio)
   sexo: Sexo;
 
   // Identificación
   tipoIdentificador: TipoIdentificador;
-  numeroIdentificador: string; // único, sin formato
+  numeroIdentificador: string;
 
   // Contacto
-  telefono: string; // formato +56912345678
-  telefonoEmergencia?: string; // opcional
+  telefono: string;
+  telefonoEmergencia?: string;
 
   // Metadata
   estado: 'activo' | 'inactivo';
