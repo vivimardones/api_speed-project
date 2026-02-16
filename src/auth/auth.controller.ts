@@ -50,6 +50,15 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Get('test')
+  getTest() {
+    return {
+      success: true,
+      message: 'Servidor funcionando correctamente',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   // ==========================================
   // ENDPOINTS PROTEGIDOS (con guards)
   // ==========================================
@@ -60,7 +69,6 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard) // ← SOLO JwtAuthGuard
   getProfile(@GetUser() user: UserFromToken) {
-    console.log('Endpoint profile: Usuario recibido:', user);
     return {
       success: true,
       message: 'Perfil obtenido exitosamente',
@@ -186,14 +194,6 @@ export class AuthController {
     return {
       success: true,
       roles: roles || [],
-    };
-  }
-  @Get('test')
-  getTest() {
-    return {
-      success: true,
-      message: 'Servidor funcionando correctamente',
-      timestamp: new Date().toISOString(),
     };
   }
 }
