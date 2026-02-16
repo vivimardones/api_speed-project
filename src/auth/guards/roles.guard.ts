@@ -29,14 +29,19 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    console.log('🔐 RolesGuard: Verificando roles...');
+
     // Obtener los roles requeridos del decorador @Roles()
     const requiredRoles = this.reflector.getAllAndOverride<Rol[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
+    console.log('📋 Roles requeridos:', requiredRoles);
+
     // Si no hay roles requeridos, permitir acceso
     if (!requiredRoles || requiredRoles.length === 0) {
+      console.log('✅ RolesGuard: No hay roles requeridos, acceso permitido');
       return true;
     }
 
@@ -44,37 +49,58 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
+    console.log('👤 Usuario del request:', user);
+
     if (!user || !user.firebaseUid) {
+      console.log('❌ RolesGuard: Usuario no autenticado');
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    // Obtener el usuarioId desde la colección logins usando firebaseUid
-    const usuarioId = await this.obtenerUsuarioIdPorFirebaseUid(
-      user.firebaseUid,
-    );
-
-    if (!usuarioId) {
-      throw new ForbiddenException('Usuario no encontrado en el sistema');
-    }
-
-    // Obtener los roles del usuario desde Firestore
-    const userRoles = await this.obtenerRolesDeUsuario(usuarioId);
-
-    // Adjuntar usuarioId y roles al request para uso posterior
-    // Ya validamos que user existe en la línea 47
-    user.usuarioId = usuarioId;
-    user.roles = userRoles;
-
-    // Verificar si el usuario tiene al menos uno de los roles requeridos
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
-
-    if (!hasRole) {
-      throw new ForbiddenException(
-        `Acceso denegado. Se requiere uno de los siguientes roles: ${requiredRoles.join(', ')}`,
+    try {
+      // Obtener el usuarioId desde la colección logins usando firebaseUid
+      console.log('🔍 Buscando usuarioId en Firestore...');
+      const usuarioId = await this.obtenerUsuarioIdPorFirebaseUid(
+        user.firebaseUid,
       );
-    }
 
-    return true;
+      console.log('🆔 Usuario ID encontrado:', usuarioId);
+
+      if (!usuarioId) {
+        console.log('❌ Usuario no encontrado en Firestore');
+        throw new ForbiddenException('Usuario no encontrado en el sistema');
+      }
+
+      // Obtener los roles del usuario desde Firestore
+      console.log('🔍 Buscando roles del usuario...');
+      const userRoles = await this.obtenerRolesDeUsuario(usuarioId);
+
+      console.log('🎭 Roles del usuario:', userRoles);
+
+      // Adjuntar usuarioId y roles al request para uso posterior
+      user.usuarioId = usuarioId;
+      user.roles = userRoles;
+
+      // Verificar si el usuario tiene al menos uno de los roles requeridos
+      const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+
+      console.log('✅ ¿Tiene rol requerido?', hasRole);
+
+      if (!hasRole) {
+        console.log('❌ RolesGuard: Acceso denegado');
+        throw new ForbiddenException(
+          `Acceso denegado. Se requiere uno de los siguientes roles: ${requiredRoles.join(', ')}`,
+        );
+      }
+
+      console.log('✅ RolesGuard: Acceso permitido');
+      return true;
+    } catch (error) {
+      console.log('❌ Error en RolesGuard:', error);
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      throw new ForbiddenException('Error al verificar roles');
+    }
   }
 
   /**
@@ -83,30 +109,47 @@ export class RolesGuard implements CanActivate {
   private async obtenerUsuarioIdPorFirebaseUid(
     firebaseUid: string,
   ): Promise<string | null> {
-    const loginsRef = collection(db, 'logins');
-    const q = query(loginsRef, where('firebaseUid', '==', firebaseUid));
-    const snapshot = await getDocs(q);
+    try {
+      const loginsRef = collection(db, 'logins');
+      const q = query(loginsRef, where('firebaseUid', '==', firebaseUid));
+      const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      return null;
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontró login para firebaseUid:', firebaseUid);
+        return null;
+      }
+
+      const loginData = snapshot.docs[0].data();
+      console.log('📄 Login data:', loginData);
+      return (loginData['usuarioId'] as string) || null;
+    } catch (error) {
+      console.log('❌ Error al obtener usuarioId:', error);
+      throw error;
     }
-
-    const loginData = snapshot.docs[0].data();
-    return (loginData['usuarioId'] as string) || null;
   }
 
   /**
    * Obtener roles del usuario desde Firestore
    */
   private async obtenerRolesDeUsuario(usuarioId: string): Promise<Rol[]> {
-    const rolesRef = collection(db, 'usuario_roles');
-    const q = query(
-      rolesRef,
-      where('usuarioId', '==', usuarioId),
-      where('activo', '==', true),
-    );
-    const rolesSnapshot = await getDocs(q);
+    try {
+      const rolesRef = collection(db, 'usuario_roles');
+      const q = query(
+        rolesRef,
+        where('usuarioId', '==', usuarioId),
+        where('activo', '==', true),
+      );
+      const rolesSnapshot = await getDocs(q);
 
-    return rolesSnapshot.docs.map((doc) => doc.data()['rol'] as Rol);
+      console.log('📊 Documentos de roles encontrados:', rolesSnapshot.size);
+
+      return rolesSnapshot.docs.map((doc) => {
+        console.log('📄 Rol doc:', doc.data());
+        return doc.data()['rol'] as Rol;
+      });
+    } catch (error) {
+      console.log('❌ Error al obtener roles:', error);
+      throw error;
+    }
   }
 }
