@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   collection,
   doc,
@@ -11,6 +15,8 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
+  query,
+  where,
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 import cloudinary from '../utils/cloudinary.config';
@@ -19,7 +25,80 @@ import { IMulterFile } from './interfaces/multer.interface';
 
 @Injectable()
 export class ClubesService {
-  // CRUD básico
+  // ==========================================
+  // MÉTODOS AUXILIARES DE VALIDACIÓN
+  // ==========================================
+
+  /**
+   * Verificar que el nombre fantasía sea único
+   */
+  private async verificarNombreFantasiaUnico(
+    nombreFantasia: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const clubesRef = collection(db, 'clubes');
+    const q = query(clubesRef, where('nombreFantasia', '==', nombreFantasia));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const existingDoc = snapshot.docs[0];
+      // Si estamos editando, permitir el mismo nombre si es el mismo club
+      if (!excludeId || existingDoc.id !== excludeId) {
+        throw new ConflictException(
+          `Ya existe un club con el nombre "${nombreFantasia}"`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Verificar que el RUT sea único
+   */
+  private async verificarRutUnico(
+    rut: string,
+    excludeId?: string,
+  ): Promise<void> {
+    if (!rut) return; // RUT es opcional
+
+    const clubesRef = collection(db, 'clubes');
+    const q = query(clubesRef, where('rut', '==', rut));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const existingDoc = snapshot.docs[0];
+      if (!excludeId || existingDoc.id !== excludeId) {
+        throw new ConflictException(`Ya existe un club con el RUT "${rut}"`);
+      }
+    }
+  }
+
+  /**
+   * Verificar que el correo sea único
+   */
+  private async verificarCorreoUnico(
+    correo: string,
+    excludeId?: string,
+  ): Promise<void> {
+    if (!correo) return; // Correo es opcional
+
+    const clubesRef = collection(db, 'clubes');
+    const q = query(clubesRef, where('correo', '==', correo));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const existingDoc = snapshot.docs[0];
+      if (!excludeId || existingDoc.id !== excludeId) {
+        throw new ConflictException(
+          `Ya existe un club con el correo "${correo}"`,
+        );
+      }
+    }
+  }
+
+  // ==========================================
+  // CRUD BÁSICO CON VALIDACIONES
+  // ==========================================
+
   async findAll(): Promise<IClub[]> {
     const clubesRef = collection(db, 'clubes');
     const snapshot = await getDocs(clubesRef);
@@ -38,10 +117,24 @@ export class ClubesService {
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as IClub;
     }
-    return null;
+    throw new NotFoundException(`Club con ID ${id} no encontrado`);
   }
 
   async create(clubData: ICreateClubDto): Promise<IClub> {
+    // 1. Validar que el nombre fantasía sea único
+    await this.verificarNombreFantasiaUnico(clubData.nombreFantasia);
+
+    // 2. Validar que el RUT sea único (si existe)
+    if (clubData.rut) {
+      await this.verificarRutUnico(clubData.rut);
+    }
+
+    // 3. Validar que el correo sea único (si existe)
+    if (clubData.correo) {
+      await this.verificarCorreoUnico(clubData.correo);
+    }
+
+    // 4. Crear el club
     const newClub = {
       ...clubData,
       vigencia: clubData.vigencia !== undefined ? clubData.vigencia : true,
@@ -57,6 +150,25 @@ export class ClubesService {
   }
 
   async update(id: string, clubData: Partial<ICreateClubDto>): Promise<IClub> {
+    // 1. Verificar que el club existe
+    await this.findOne(id);
+
+    // 2. Validar nombre fantasía único (si se está actualizando)
+    if (clubData.nombreFantasia) {
+      await this.verificarNombreFantasiaUnico(clubData.nombreFantasia, id);
+    }
+
+    // 3. Validar RUT único (si se está actualizando)
+    if (clubData.rut) {
+      await this.verificarRutUnico(clubData.rut, id);
+    }
+
+    // 4. Validar correo único (si se está actualizando)
+    if (clubData.correo) {
+      await this.verificarCorreoUnico(clubData.correo, id);
+    }
+
+    // 5. Actualizar el club
     const clubRef = doc(db, 'clubes', id);
 
     const updateData = {
@@ -73,13 +185,18 @@ export class ClubesService {
   }
 
   async remove(id: string): Promise<{ id: string }> {
+    // Verificar que existe antes de eliminar
+    await this.findOne(id);
+
     const clubRef = doc(db, 'clubes', id);
     await deleteDoc(clubRef);
     return { id };
   }
 
-  // Upload de imágenes a Cloudinary
-  // Upload de imágenes a Cloudinary (UNSIGNED)
+  // ==========================================
+  // UPLOAD DE IMÁGENES (SIN CAMBIOS)
+  // ==========================================
+
   async uploadImage(
     file: IMulterFile,
     clubId: string,
@@ -88,7 +205,7 @@ export class ClubesService {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET, // ← Usar preset
+          upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
           folder: `clubes/${clubId}`,
           public_id: type,
           overwrite: true,
@@ -108,7 +225,6 @@ export class ClubesService {
             return reject(new Error('No result from Cloudinary'));
           }
 
-          // Actualizar Firestore
           const clubRef = doc(db, 'clubes', clubId);
           updateDoc(clubRef, {
             [type]: result.secure_url,
@@ -128,7 +244,6 @@ export class ClubesService {
     });
   }
 
-  // Eliminar imagen de Cloudinary
   async deleteImage(
     clubId: string,
     type: 'escudo' | 'insignia',
@@ -150,7 +265,10 @@ export class ClubesService {
     }
   }
 
-  // Relaciones con usuarios
+  // ==========================================
+  // RELACIONES (SIN CAMBIOS)
+  // ==========================================
+
   async getUsuarios(clubId: string): Promise<unknown[]> {
     const usuariosRef = collection(db, 'usuarios');
     const snapshot = await getDocs(usuariosRef);
@@ -169,7 +287,6 @@ export class ClubesService {
     return { clubId, usuarioId };
   }
 
-  // Relaciones con ramas deportivas
   async getRamasDeportivas(clubId: string): Promise<unknown[]> {
     const ramasRef = collection(db, 'ramas-deportivas');
     const snapshot = await getDocs(ramasRef);
@@ -191,7 +308,6 @@ export class ClubesService {
     return { id: docRef.id, clubId, ...ramaData };
   }
 
-  // Relaciones con nóminas
   async getNominas(clubId: string): Promise<unknown[]> {
     const nominasRef = collection(db, 'nominas');
     const snapshot = await getDocs(nominasRef);
@@ -210,7 +326,10 @@ export class ClubesService {
     return { clubId, nominaId };
   }
 
-  // Métodos adicionales útiles
+  // ==========================================
+  // MÉTODOS ADICIONALES ÚTILES
+  // ==========================================
+
   async findByNombre(nombre: string): Promise<IClub[]> {
     const clubesRef = collection(db, 'clubes');
     const snapshot = await getDocs(clubesRef);
@@ -246,6 +365,8 @@ export class ClubesService {
     id: string,
     vigencia: boolean,
   ): Promise<{ id: string; vigencia: boolean }> {
+    await this.findOne(id); // Verificar que existe
+
     const clubRef = doc(db, 'clubes', id);
     await updateDoc(clubRef, {
       vigencia,
