@@ -79,6 +79,7 @@ export class ClubesService {
   }
 
   // Upload de imágenes a Cloudinary
+  // Upload de imágenes a Cloudinary (UNSIGNED)
   async uploadImage(
     file: IMulterFile,
     clubId: string,
@@ -87,6 +88,7 @@ export class ClubesService {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
+          upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET, // ← Usar preset
           folder: `clubes/${clubId}`,
           public_id: type,
           overwrite: true,
@@ -94,7 +96,6 @@ export class ClubesService {
           transformation: [
             { width: 500, height: 500, crop: 'limit' },
             { quality: 'auto' },
-            { format: 'webp' },
           ],
         },
         (error, result) => {
@@ -107,7 +108,7 @@ export class ClubesService {
             return reject(new Error('No result from Cloudinary'));
           }
 
-          // Usar .then() en vez de await
+          // Actualizar Firestore
           const clubRef = doc(db, 'clubes', clubId);
           updateDoc(clubRef, {
             [type]: result.secure_url,

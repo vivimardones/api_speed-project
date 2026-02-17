@@ -11,12 +11,12 @@ import {
   UploadedFile,
   ParseFilePipe,
   MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClubesService } from './clubes.service';
 import { ICreateClubDto } from './interfaces/club.interface';
 import { IMulterFile } from './interfaces/multer.interface';
+import { ImageFileValidator } from './validators/image-file.validator';
 
 @Controller('clubes')
 export class ClubesController {
@@ -56,7 +56,7 @@ export class ClubesController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
-          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }),
+          new ImageFileValidator(),
         ],
       }),
     )
