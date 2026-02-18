@@ -96,9 +96,6 @@ export class AuthService {
       registerDto.numeroIdentificador,
     );
 
-    // 8. Verificar que el teléfono no exista
-    await this.verificarTelefonoUnico(registerDto.telefono);
-
     try {
       // 9. Crear usuario en Firebase Auth
       const firebaseUser = await createUserWithEmailAndPassword(
@@ -412,19 +409,6 @@ export class AuthService {
       throw new ConflictException(
         `Ya existe un usuario con el ${tipoIdentificador}: ${numeroIdentificador}`,
       );
-    }
-  }
-
-  /**
-   * Verificar que el teléfono no exista
-   */
-  private async verificarTelefonoUnico(telefono: string): Promise<void> {
-    const usuariosRef = collection(db, this.usuariosCollection);
-    const q = query(usuariosRef, where('telefono', '==', telefono));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      throw new ConflictException('El teléfono ya está registrado');
     }
   }
 

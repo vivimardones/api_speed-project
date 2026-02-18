@@ -121,7 +121,7 @@ export class RutService {
 
       case 'IDENTIFICADOR_EXTRANJERO':
         // Debe tener entre 5 y 30 caracteres alfanuméricos
-        return /^[A-Z0-9]{5,30}$/.test(numero.toUpperCase());
+        return !!numero && numero.trim().length > 0;
 
       default:
         return false;
