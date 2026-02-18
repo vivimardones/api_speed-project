@@ -22,30 +22,30 @@ interface RequestWithUser extends Request {
 export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
-    const authHeader = request.headers.authorization;
+    const authHeader =
+      request.headers['authorization'] || request.headers['Authorization'];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (
+      !authHeader ||
+      typeof authHeader !== 'string' ||
+      !authHeader.startsWith('Bearer ')
+    ) {
       throw new UnauthorizedException(
         'No se proporcionó token de autenticación',
       );
     }
 
-    const token = authHeader.split('Bearer ')[1];
+    const token = authHeader.slice(7).trim(); // Quita 'Bearer '
 
     if (!token) {
       throw new UnauthorizedException('Token inválido');
     }
 
     try {
-      // Verificar el token con Firebase Admin
       const decodedToken = await auth.verifyIdToken(token);
-
-      // Validar que el token tenga uid y email
       if (!decodedToken.uid || !decodedToken.email) {
         throw new UnauthorizedException('Token inválido: falta uid o email');
       }
-
-      // Adjuntar la información del usuario al request
       request.user = {
         firebaseUid: decodedToken.uid,
         email: decodedToken.email,
