@@ -9,19 +9,11 @@ import {
 import { Request } from 'express';
 import { auth } from '../../firebase.config';
 
-// Extender el tipo Request para incluir user
-interface RequestWithUser extends Request {
-  user?: {
-    firebaseUid: string;
-    email: string;
-    emailVerified: boolean;
-  };
-}
-
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    // Usar tipo Request de express directamente para evitar error de tipado
+    const request = context.switchToHttp().getRequest<Request>();
     const authHeader =
       request.headers['authorization'] || request.headers['Authorization'];
 
