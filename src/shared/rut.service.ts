@@ -17,12 +17,12 @@ export class RutService {
 
   /**
    * Valida el formato de un RUT chileno
-   * Acepta formatos: 12345678-9, 12.345.678-9
+   * Acepta formatos: 12345678-9, 12.345.678-9 o 123456789
    */
   validarFormato(rut: string): boolean {
-    // Regex para validar formato con o sin puntos
-    const regex = /^(\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])$/;
-    return regex.test(rut);
+    // Regex para validar formato con o sin puntos y con o sin guión
+    const regex = /^(\d{7,8}-?[\dkK])$/;
+    return regex.test(rut.replace(/\./g, ''));
   }
 
   /**

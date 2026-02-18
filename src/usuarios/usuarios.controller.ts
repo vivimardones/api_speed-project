@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -26,6 +27,19 @@ export class UsuariosController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createUsuarioDto: CreateUsuarioDto) {
     return this.usuariosService.create(createUsuarioDto);
+  }
+
+  /**
+   * PUT /usuarios/:id
+   * Actualizar completamente un usuario por ID
+   */
+  @Put(':id')
+  @HttpCode(HttpStatus.OK)
+  updatePut(
+    @Param('id') id: string,
+    @Body() updateUsuarioDto: UpdateUsuarioDto,
+  ) {
+    return this.usuariosService.update(id, updateUsuarioDto);
   }
 
   /**

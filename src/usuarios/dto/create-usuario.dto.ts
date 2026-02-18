@@ -9,6 +9,7 @@ import {
   MaxLength,
   Matches,
   IsDateString,
+  ValidateIf,
 } from 'class-validator';
 
 export enum TipoIdentificador {
@@ -41,9 +42,6 @@ export class CreateUsuarioDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(2, {
-    message: 'El segundo nombre debe tener al menos 2 caracteres',
-  })
   @MaxLength(50, {
     message: 'El segundo nombre no puede superar 50 caracteres',
   })
@@ -51,9 +49,6 @@ export class CreateUsuarioDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(2, {
-    message: 'El tercer nombre debe tener al menos 2 caracteres',
-  })
   @MaxLength(50, { message: 'El tercer nombre no puede superar 50 caracteres' })
   tercerNombre?: string;
 
@@ -111,6 +106,7 @@ export class CreateUsuarioDto {
 
   @IsOptional()
   @IsString()
+  @ValidateIf((o: CreateUsuarioDto) => o.telefonoEmergencia !== '')
   @Matches(/^\+56[0-9]{9}$/, {
     message: 'El teléfono de emergencia debe tener formato +56912345678',
   })
