@@ -1,6 +1,4 @@
 export class CreateDeportistaDto {
-  nombre: string;
-  apellido: string;
   email?: string;
   telefono?: string;
   fechaNacimiento?: Date;

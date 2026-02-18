@@ -26,12 +26,9 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db, clientAuth } from '../firebase.config';
-import { RegisterAdultoDto, RegisterAdolescenteDto, LoginDto } from './dto';
-import {
-  RegisterAdultoResponse,
-  RegisterAdolescenteResponse,
-  LoginResponse,
-} from './interfaces';
+import { LoginDto, RegisterDto } from './dto';
+import { LoginResponse } from './interfaces/auth-response.interface';
+import { RegisterResponse } from './interfaces/register-response.interface';
 import { EdadService } from '../shared/edad.service';
 import { RutService } from '../shared/rut.service';
 import { TipoIdentificador } from '../usuarios/dto';
@@ -40,13 +37,153 @@ import { TipoIdentificador } from '../usuarios/dto';
 export class AuthService {
   private readonly loginsCollection = 'logins';
   private readonly usuariosCollection = 'usuarios';
-  private readonly apoderadosDeportistasCollection = 'apoderados_deportistas';
   private readonly usuarioRolesCollection = 'usuario_roles';
 
   constructor(
     private readonly edadService: EdadService,
     private readonly rutService: RutService,
   ) {}
+
+  async register(registerDto: RegisterDto): Promise<RegisterResponse> {
+    // 1. Validar fecha de nacimiento
+    if (!this.edadService.esFechaValida(registerDto.fechaNacimiento)) {
+      throw new BadRequestException('La fecha de nacimiento no es válida');
+    }
+
+    // 2. Calcular edad
+    const edad = this.edadService.calcularEdad(registerDto.fechaNacimiento);
+
+    // 3. Validar edad mínima
+    if (edad < 10) {
+      throw new BadRequestException(
+        'Los menores de 10 años deben ser inscritos por su apoderado.',
+      );
+    }
+
+    // 4. Validar identificador (RUT/cédula) si aplica
+    if (
+      registerDto.tipoIdentificador === TipoIdentificador.RUT ||
+      registerDto.tipoIdentificador === TipoIdentificador.RUT_PROVISORIO
+    ) {
+      const rutCompleto = registerDto.numeroIdentificador;
+
+      if (!this.rutService.validarRut(rutCompleto)) {
+        throw new BadRequestException(
+          'El RUT ingresado no es válido. Verifica el número y el dígito verificador.',
+        );
+      }
+      registerDto.numeroIdentificador = this.rutService.limpiarRut(rutCompleto);
+    }
+
+    // 5. Validar formato de identificador
+    if (
+      !this.rutService.esIdentificadorValido(
+        registerDto.tipoIdentificador,
+        registerDto.numeroIdentificador,
+      )
+    ) {
+      throw new BadRequestException(
+        `El formato del identificador no es válido para el tipo ${registerDto.tipoIdentificador}`,
+      );
+    }
+
+    // 6. Verificar que el correo no exista
+    await this.verificarCorreoUnico(registerDto.correo);
+
+    // 7. Verificar identificador único
+    await this.verificarIdentificadorUnico(
+      registerDto.tipoIdentificador,
+      registerDto.numeroIdentificador,
+    );
+
+    // 8. Verificar que el teléfono no exista
+    await this.verificarTelefonoUnico(registerDto.telefono);
+
+    try {
+      // 9. Crear usuario en Firebase Auth
+      const firebaseUser = await createUserWithEmailAndPassword(
+        clientAuth,
+        registerDto.correo,
+        registerDto.password,
+      );
+
+      // 10. Enviar correo de verificación
+      await sendEmailVerification(firebaseUser.user);
+
+      // 11. Crear documento en logins
+      const loginDocRef = await addDoc(collection(db, this.loginsCollection), {
+        firebaseUid: firebaseUser.user.uid,
+        correo: registerDto.correo,
+        usuarioId: null, // Se actualizará después
+        ultimoAcceso: null,
+        intentosFallidos: 0,
+        bloqueado: false,
+        verificado: false,
+        tokenRecuperacion: null,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+
+      // 12. Crear documento en usuarios (rol SIEMPRE USUARIO)
+      const usuarioDocRef = await addDoc(
+        collection(db, this.usuariosCollection),
+        {
+          loginId: loginDocRef.id,
+          primerNombre: registerDto.primerNombre,
+          segundoNombre: registerDto.segundoNombre || null,
+          tercerNombre: registerDto.tercerNombre || null,
+          apellidoPaterno: registerDto.apellidoPaterno,
+          apellidoMaterno: registerDto.apellidoMaterno,
+          fechaNacimiento: registerDto.fechaNacimiento,
+          sexo: registerDto.sexo,
+          tipoIdentificador: registerDto.tipoIdentificador,
+          numeroIdentificador: registerDto.numeroIdentificador,
+          telefono: registerDto.telefono,
+          telefonoEmergencia: registerDto.telefonoEmergencia || null,
+          estado: 'activo',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        },
+      );
+
+      // 13. Si se creó login, actualizar con usuarioId
+      await updateDoc(doc(db, this.loginsCollection, loginDocRef.id), {
+        usuarioId: usuarioDocRef.id,
+        updatedAt: Timestamp.now(),
+      });
+
+      // 14. Rol inicial: USUARIO
+      await this.asignarRoles(usuarioDocRef.id, [Rol.USUARIO]);
+
+      // 15. Retornar respuesta estándar (ajusta el response si quieres devolver más datos)
+      return {
+        success: true,
+        message:
+          'Usuario registrado correctamente. Por favor verifica tu correo electrónico.',
+        usuarioId: usuarioDocRef.id,
+        loginId: loginDocRef.id,
+        firebaseUid: firebaseUser.user.uid,
+        edad: edad,
+        verificacionEnviada: true,
+        roles: [Rol.USUARIO],
+      };
+    } catch (error: unknown) {
+      if (error instanceof FirebaseError) {
+        if (error.code === 'auth/email-already-in-use') {
+          throw new ConflictException('El correo ya está registrado');
+        }
+        if (error.code === 'auth/weak-password') {
+          throw new BadRequestException('La contraseña es muy débil');
+        }
+        if (error.code === 'auth/invalid-email') {
+          throw new BadRequestException('El formato del correo no es válido');
+        }
+      }
+      throw new InternalServerErrorException(
+        'Error al registrar el usuario: ' + this.getErrorMessage(error),
+      );
+    }
+  }
 
   /**
    * Asignar roles a un usuario
@@ -107,29 +244,6 @@ export class AuthService {
   }
 
   /**
-   * Determinar roles automáticamente según el contexto del usuario
-   */
-  /**
-   * Determinar roles iniciales según edad
-   * (No verifica relaciones, solo edad)
-   */
-  private determinarRolesIniciales(edad: number): Rol[] {
-    const roles: Rol[] = [];
-
-    // Todos los usuarios que se registran son deportistas por defecto
-    if (edad >= 10) {
-      roles.push(Rol.DEPORTISTA);
-    }
-
-    // Si no tiene edad para ser deportista, igual asignamos el rol
-    if (roles.length === 0) {
-      roles.push(Rol.DEPORTISTA);
-    }
-
-    return roles;
-  }
-
-  /**
    * Obtener mensaje de error de forma segura
    */
   private getErrorMessage(error: unknown): string {
@@ -140,379 +254,6 @@ export class AuthService {
       return error;
     }
     return 'Error desconocido';
-  }
-
-  /**
-   * Registrar un adulto (>= 18 años)
-   */
-  async registerAdulto(
-    registerAdultoDto: RegisterAdultoDto,
-  ): Promise<RegisterAdultoResponse> {
-    // 1. Validar fecha de nacimiento
-    if (!this.edadService.esFechaValida(registerAdultoDto.fechaNacimiento)) {
-      throw new BadRequestException('La fecha de nacimiento no es válida');
-    }
-
-    // 2. Calcular edad
-    const edad = this.edadService.calcularEdad(
-      registerAdultoDto.fechaNacimiento,
-    );
-
-    // 3. Validar que sea mayor de 18 años
-    if (edad < 18) {
-      throw new BadRequestException(
-        'Debe ser mayor de 18 años para registrarse como adulto. Use el endpoint /auth/register-adolescente',
-      );
-    }
-
-    // 4. Validar RUT si aplica
-    if (
-      registerAdultoDto.tipoIdentificador === TipoIdentificador.RUT ||
-      registerAdultoDto.tipoIdentificador === TipoIdentificador.RUT_PROVISORIO
-    ) {
-      const rutCompleto = registerAdultoDto.numeroIdentificador;
-
-      if (!this.rutService.validarRut(rutCompleto)) {
-        throw new BadRequestException(
-          'El RUT ingresado no es válido. Verifica el número y el dígito verificador.',
-        );
-      }
-
-      registerAdultoDto.numeroIdentificador =
-        this.rutService.limpiarRut(rutCompleto);
-    }
-
-    // 5. Validar formato de identificador
-    if (
-      !this.rutService.esIdentificadorValido(
-        registerAdultoDto.tipoIdentificador,
-        registerAdultoDto.numeroIdentificador,
-      )
-    ) {
-      throw new BadRequestException(
-        `El formato del identificador no es válido para el tipo ${registerAdultoDto.tipoIdentificador}`,
-      );
-    }
-
-    // 6. Verificar que el correo no exista
-    await this.verificarCorreoUnico(registerAdultoDto.correo);
-
-    // 7. Verificar que el identificador no exista
-    await this.verificarIdentificadorUnico(
-      registerAdultoDto.tipoIdentificador,
-      registerAdultoDto.numeroIdentificador,
-    );
-
-    // 8. Verificar que el teléfono no exista
-    await this.verificarTelefonoUnico(registerAdultoDto.telefono);
-
-    try {
-      // 9. Crear usuario en Firebase Auth
-      const firebaseUser = await createUserWithEmailAndPassword(
-        clientAuth,
-        registerAdultoDto.correo,
-        registerAdultoDto.password,
-      );
-
-      // 10. Enviar correo de verificación
-      await sendEmailVerification(firebaseUser.user);
-
-      // 11. Crear documento en logins
-      const loginDocRef = await addDoc(collection(db, this.loginsCollection), {
-        firebaseUid: firebaseUser.user.uid,
-        correo: registerAdultoDto.correo,
-        usuarioId: null, // Se actualizará después
-        ultimoAcceso: null,
-        intentosFallidos: 0,
-        bloqueado: false,
-        verificado: false,
-        tokenRecuperacion: null,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-
-      // 12. Crear documento en usuarios
-      const usuarioDocRef = await addDoc(
-        collection(db, this.usuariosCollection),
-        {
-          loginId: loginDocRef.id,
-          primerNombre: registerAdultoDto.primerNombre,
-          segundoNombre: registerAdultoDto.segundoNombre || null,
-          tercerNombre: registerAdultoDto.tercerNombre || null,
-          apellidoPaterno: registerAdultoDto.apellidoPaterno,
-          apellidoMaterno: registerAdultoDto.apellidoMaterno,
-          fechaNacimiento: registerAdultoDto.fechaNacimiento,
-          sexo: registerAdultoDto.sexo,
-          tipoIdentificador: registerAdultoDto.tipoIdentificador,
-          numeroIdentificador: registerAdultoDto.numeroIdentificador,
-          telefono: registerAdultoDto.telefono,
-          telefonoEmergencia: registerAdultoDto.telefonoEmergencia || null,
-          estado: 'activo',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        },
-      );
-
-      // 13. Si se creó login, actualizar con usuarioId
-      await updateDoc(doc(db, this.loginsCollection, loginDocRef.id), {
-        usuarioId: usuarioDocRef.id,
-        updatedAt: Timestamp.now(),
-      });
-
-      // 14. Determinar y asignar roles
-      const roles = this.determinarRolesIniciales(edad);
-      await this.asignarRoles(usuarioDocRef.id, roles);
-
-      return {
-        success: true,
-        message:
-          'Adulto registrado exitosamente. Por favor verifica tu correo electrónico.',
-        usuarioId: usuarioDocRef.id,
-        loginId: loginDocRef.id,
-        firebaseUid: firebaseUser.user.uid,
-        edad: edad,
-        verificacionEnviada: true,
-        roles: roles,
-      };
-    } catch (error: unknown) {
-      // Manejar errores de Firebase Auth
-      if (error instanceof FirebaseError) {
-        if (error.code === 'auth/email-already-in-use') {
-          throw new ConflictException('El correo ya está registrado');
-        }
-        if (error.code === 'auth/weak-password') {
-          throw new BadRequestException('La contraseña es muy débil');
-        }
-        if (error.code === 'auth/invalid-email') {
-          throw new BadRequestException('El formato del correo no es válido');
-        }
-      }
-
-      throw new InternalServerErrorException(
-        'Error al registrar el usuario: ' + this.getErrorMessage(error),
-      );
-    }
-  }
-
-  /**
-   * Registrar un adolescente (10-17 años)
-   */
-  async registerAdolescente(
-    registerAdolescenteDto: RegisterAdolescenteDto,
-  ): Promise<RegisterAdolescenteResponse> {
-    // 1. Validar fecha de nacimiento
-    if (
-      !this.edadService.esFechaValida(registerAdolescenteDto.fechaNacimiento)
-    ) {
-      throw new BadRequestException('La fecha de nacimiento no es válida');
-    }
-
-    // 2. Calcular edad
-    const edad = this.edadService.calcularEdad(
-      registerAdolescenteDto.fechaNacimiento,
-    );
-
-    // 3. Validar que tenga entre 10 y 17 años
-    if (edad < 10) {
-      throw new BadRequestException(
-        'Los menores de 10 años deben ser registrados por su apoderado usando el endpoint /usuarios',
-      );
-    }
-
-    if (edad >= 18) {
-      throw new BadRequestException(
-        'Debe ser menor de 18 años para usar este endpoint. Use /auth/register-adulto',
-      );
-    }
-
-    // 4. Validar RUT si aplica
-    if (
-      registerAdolescenteDto.tipoIdentificador === TipoIdentificador.RUT ||
-      registerAdolescenteDto.tipoIdentificador ===
-        TipoIdentificador.RUT_PROVISORIO
-    ) {
-      const rutCompleto = registerAdolescenteDto.numeroIdentificador;
-
-      if (!this.rutService.validarRut(rutCompleto)) {
-        throw new BadRequestException(
-          'El RUT ingresado no es válido. Verifica el número y el dígito verificador.',
-        );
-      }
-
-      registerAdolescenteDto.numeroIdentificador =
-        this.rutService.limpiarRut(rutCompleto);
-    }
-
-    // 5. Validar formato de identificador
-    if (
-      !this.rutService.esIdentificadorValido(
-        registerAdolescenteDto.tipoIdentificador,
-        registerAdolescenteDto.numeroIdentificador,
-      )
-    ) {
-      throw new BadRequestException(
-        `El formato del identificador no es válido para el tipo ${registerAdolescenteDto.tipoIdentificador}`,
-      );
-    }
-
-    // 6. Verificar que el identificador no exista
-    await this.verificarIdentificadorUnico(
-      registerAdolescenteDto.tipoIdentificador,
-      registerAdolescenteDto.numeroIdentificador,
-    );
-
-    // 7. Verificar que el teléfono no exista
-    await this.verificarTelefonoUnico(registerAdolescenteDto.telefono);
-
-    // 8. Si tiene correo/password, validar ambos
-    const tieneCredenciales =
-      registerAdolescenteDto.correo && registerAdolescenteDto.password;
-
-    if (registerAdolescenteDto.correo && !registerAdolescenteDto.password) {
-      throw new BadRequestException(
-        'Si proporciona un correo, debe proporcionar también una contraseña',
-      );
-    }
-
-    if (registerAdolescenteDto.password && !registerAdolescenteDto.correo) {
-      throw new BadRequestException(
-        'Si proporciona una contraseña, debe proporcionar también un correo',
-      );
-    }
-
-    // 9. Si tiene correo, verificar que no exista
-    if (tieneCredenciales) {
-      await this.verificarCorreoUnico(registerAdolescenteDto.correo!);
-    }
-
-    // 10. Si tiene apoderado, verificar que exista
-    if (registerAdolescenteDto.apoderadoId) {
-      await this.verificarApoderadoValido(registerAdolescenteDto.apoderadoId);
-    }
-
-    try {
-      let loginId: string | null = null;
-      let firebaseUid: string | null = null;
-
-      // 11. Si tiene correo/password, crear en Firebase Auth y logins
-      if (tieneCredenciales) {
-        const firebaseUser = await createUserWithEmailAndPassword(
-          clientAuth,
-          registerAdolescenteDto.correo!,
-          registerAdolescenteDto.password!,
-        );
-
-        await sendEmailVerification(firebaseUser.user);
-
-        const loginDocRef = await addDoc(
-          collection(db, this.loginsCollection),
-          {
-            firebaseUid: firebaseUser.user.uid,
-            correo: registerAdolescenteDto.correo,
-            usuarioId: null,
-            ultimoAcceso: null,
-            intentosFallidos: 0,
-            bloqueado: false,
-            verificado: false,
-            tokenRecuperacion: null,
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-          },
-        );
-
-        loginId = loginDocRef.id;
-        firebaseUid = firebaseUser.user.uid;
-      }
-
-      // 12. Crear documento en usuarios
-      const usuarioDocRef = await addDoc(
-        collection(db, this.usuariosCollection),
-        {
-          loginId: loginId,
-          primerNombre: registerAdolescenteDto.primerNombre,
-          segundoNombre: registerAdolescenteDto.segundoNombre || null,
-          tercerNombre: registerAdolescenteDto.tercerNombre || null,
-          apellidoPaterno: registerAdolescenteDto.apellidoPaterno,
-          apellidoMaterno: registerAdolescenteDto.apellidoMaterno,
-          fechaNacimiento: registerAdolescenteDto.fechaNacimiento,
-          sexo: registerAdolescenteDto.sexo,
-          tipoIdentificador: registerAdolescenteDto.tipoIdentificador,
-          numeroIdentificador: registerAdolescenteDto.numeroIdentificador,
-          telefono: registerAdolescenteDto.telefono,
-          telefonoEmergencia: registerAdolescenteDto.telefonoEmergencia || null,
-          estado: 'activo',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        },
-      );
-
-      // 13. Si se creó login, actualizar con usuarioId
-      if (loginId) {
-        await updateDoc(doc(db, this.loginsCollection, loginId), {
-          usuarioId: usuarioDocRef.id,
-          updatedAt: Timestamp.now(),
-        });
-      }
-
-      // 14. Si tiene apoderado, crear la relación Y asignar rol de apoderado
-      if (registerAdolescenteDto.apoderadoId) {
-        // Crear relación apoderado-deportista
-        await addDoc(collection(db, this.apoderadosDeportistasCollection), {
-          apoderadoId: registerAdolescenteDto.apoderadoId,
-          deportistaId: usuarioDocRef.id,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-
-        // Asignar rol de apoderado al adulto si no lo tiene
-        await this.asignarRolApoderado(registerAdolescenteDto.apoderadoId);
-      }
-
-      // 15. Determinar y asignar roles al adolescente
-      const roles = this.determinarRolesIniciales(edad);
-      await this.asignarRoles(usuarioDocRef.id, roles);
-
-      // 16. Construir respuesta CON TIPADO
-      const response: RegisterAdolescenteResponse = {
-        success: true,
-        message: 'Adolescente registrado exitosamente.',
-        usuarioId: usuarioDocRef.id,
-        edad: edad,
-        tieneLogin: !!loginId,
-        tieneApoderado: !!registerAdolescenteDto.apoderadoId,
-        roles: roles,
-      };
-
-      if (loginId) {
-        response.loginId = loginId;
-        response.firebaseUid = firebaseUid ?? undefined;
-        response.verificacionEnviada = true;
-        response.message += ' Por favor verifica tu correo electrónico.';
-      }
-
-      if (!registerAdolescenteDto.apoderadoId) {
-        response.advertencia =
-          'Este usuario es menor de edad y debería tener un apoderado asignado.';
-      }
-
-      return response;
-    } catch (error: unknown) {
-      if (error instanceof FirebaseError) {
-        if (error.code === 'auth/email-already-in-use') {
-          throw new ConflictException('El correo ya está registrado');
-        }
-        if (error.code === 'auth/weak-password') {
-          throw new BadRequestException('La contraseña es muy débil');
-        }
-        if (error.code === 'auth/invalid-email') {
-          throw new BadRequestException('El formato del correo no es válido');
-        }
-      }
-
-      throw new InternalServerErrorException(
-        'Error al registrar el adolescente: ' + this.getErrorMessage(error),
-      );
-    }
   }
 
   /**

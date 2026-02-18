@@ -5,5 +5,5 @@ export enum Rol {
   DIRIGENTE = 'dirigente',
   DEPORTISTA = 'deportista',
   APODERADO = 'apoderado',
-  APODERADO_DEPORTISTA = 'apoderado_deportista',
+  USUARIO = 'usuario',
 }

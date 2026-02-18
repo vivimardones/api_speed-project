@@ -10,34 +10,25 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterAdultoDto, RegisterAdolescenteDto, LoginDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from './guards';
 import { Roles } from './decorators/roles.decorator';
 import { GetUser, UserFromToken } from './decorators/get-user.decorator';
 import { Rol } from './enums/rol.enum';
+import { RegisterResponse } from './interfaces/register-response.interface';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * POST /auth/register-adulto
-   * Registrar un adulto (>= 18 años) con login obligatorio
+   * POST /auth/register
+   * Registro estándar (solo mayores de 10 años, asigna rol usuario)
    */
-  @Post('register-adulto')
+  @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  registerAdulto(@Body() registerAdultoDto: RegisterAdultoDto) {
-    return this.authService.registerAdulto(registerAdultoDto);
-  }
-
-  /**
-   * POST /auth/register-adolescente
-   * Registrar un adolescente (10-17 años) con login opcional
-   */
-  @Post('register-adolescente')
-  @HttpCode(HttpStatus.CREATED)
-  registerAdolescente(@Body() registerAdolescenteDto: RegisterAdolescenteDto) {
-    return this.authService.registerAdolescente(registerAdolescenteDto);
+  async register(@Body() registerDto: RegisterDto): Promise<RegisterResponse> {
+    return await this.authService.register(registerDto);
   }
 
   /**
