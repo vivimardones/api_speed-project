@@ -30,6 +30,19 @@ export class UsuariosController {
   }
 
   /**
+   * POST /usuarios/:id/asignar-club
+   * Asigna (o cambia) el club de un usuario por ID
+   */
+  @Post('asignar-club/:id')
+  @HttpCode(HttpStatus.OK)
+  async asignarClub(@Param('id') id: string, @Body('clubId') clubId: string) {
+    // Llama al servicio para asignar el club
+    // Este método debes crearlo en usuarios.service.ts
+    await this.usuariosService.asignarClub(id, clubId);
+    return { message: 'Club asignado con éxito' };
+  }
+
+  /**
    * PUT /usuarios/:id
    * Actualizar completamente un usuario por ID
    */

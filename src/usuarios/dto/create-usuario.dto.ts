@@ -115,4 +115,8 @@ export class CreateUsuarioDto {
   @IsOptional()
   @IsString()
   apoderadoId?: string; // ID del usuario que actúa como apoderado
+
+  @IsOptional()
+  @IsString()
+  clubId?: string; // ID del club al que pertenece el usuario
 }

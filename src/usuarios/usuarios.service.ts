@@ -290,6 +290,11 @@ export class UsuariosService {
     } as IUsuario;
   }
 
+  async asignarClub(id: string, clubId: string): Promise<void> {
+    // Actualiza solo el clubId del usuario
+    await this.update(id, { clubId } as UpdateUsuarioDto);
+  }
+
   /**
    * Actualizar un usuario
    */
@@ -341,6 +346,15 @@ export class UsuariosService {
       await this.verificarTelefonoUnico(updateUsuarioDto.telefono, id);
     }
 
+    // Lógica de rol deportista según clubId
+    if (updateUsuarioDto.clubId !== undefined) {
+      if (updateUsuarioDto.clubId) {
+        await this.asignarRolDeportista(id);
+      } else {
+        await this.quitarRolDeportista(id);
+      }
+    }
+
     // Actualizar el documento
     const usuarioDoc = doc(db, this.collectionName, id);
     const dataToUpdate: any = {
@@ -355,6 +369,51 @@ export class UsuariosService {
       message: 'Usuario actualizado exitosamente',
       id,
     };
+  }
+
+  /**
+   * Asignar rol de deportista a un usuario si no lo tiene
+   */
+  private async asignarRolDeportista(usuarioId: string): Promise<void> {
+    const rolesRef = collection(db, this.usuarioRolesCollection);
+    const q = query(
+      rolesRef,
+      where('usuarioId', '==', usuarioId),
+      where('rol', '==', Rol.DEPORTISTA),
+      where('activo', '==', true),
+    );
+    const rolesSnapshot = await getDocs(q);
+
+    // Si no tiene el rol, asignarlo
+    if (rolesSnapshot.empty) {
+      await addDoc(collection(db, this.usuarioRolesCollection), {
+        usuarioId,
+        rol: Rol.DEPORTISTA,
+        activo: true,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+  }
+
+  /**
+   * Quitar rol de deportista a un usuario
+   */
+  private async quitarRolDeportista(usuarioId: string): Promise<void> {
+    const rolesRef = collection(db, this.usuarioRolesCollection);
+    const q = query(
+      rolesRef,
+      where('usuarioId', '==', usuarioId),
+      where('rol', '==', Rol.DEPORTISTA),
+      where('activo', '==', true),
+    );
+    const rolesSnapshot = await getDocs(q);
+    for (const docSnap of rolesSnapshot.docs) {
+      await updateDoc(docSnap.ref, {
+        activo: false,
+        updatedAt: Timestamp.now(),
+      });
+    }
   }
 
   /**
